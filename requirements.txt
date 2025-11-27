@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+psycopg2-binary
+transformers
+faiss-cpu
+pillow
+python-multipart
+jinja2
+numpy
+requests

@@ -1,0 +1,93 @@
+# ---------------------------
+# Python cache / build files
+# ---------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.npy
+*.npz
+*.idx
+*.index
+
+# VSCode settings
+.vscode/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# ---------------------------
+# Dev Container (keep the config!)
+# ---------------------------
+# KEEP: .devcontainer/devcontainer.json
+# KEEP: .devcontainer/Dockerfile
+
+# Ignore DevContainer runtime files
+.devcontainer/.cache/
+.devcontainer/data/
+.devcontainer/tmp/
+
+# VSCode Remote Containers temp files
+.vscode-server/
+.vscode-remote/
+.vscode-insiders/
+
+# ---------------------------
+# Docker files
+# ---------------------------
+docker-compose.override.yml
+docker-compose.debug.yml
+
+# Docker runtime data
+.env
+*.env
+.env.local
+.env.*.local
+docker-data/
+volume_data/
+pgdata/
+db-data/
+*.pid
+
+# ---------------------------
+# FAISS, CLIP, and ML files
+# ---------------------------
+# Ignore large models
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Model directories (adjust if needed)
+project_data/
+# (if you want to include CLIP model later, we can whitelist)
+
+# ---------------------------
+# Images & Uploads
+# ---------------------------
+all_images/
+uploads/
+static/images/
+media/
+
+# ---------------------------
+# Logs
+# ---------------------------
+*.log
+logs/
+log/
+debug.log
+
+# ---------------------------
+# OS / Environment files
+# ---------------------------
+.DS_Store
+Thumbs.db
+
+# ---------------------------
+# Python virtual environments (if created accidentally)
+# ---------------------------
+venv/
+env/
+.venv/
