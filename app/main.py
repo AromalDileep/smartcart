@@ -78,3 +78,13 @@ async def on_shutdown():
 
 from fastapi.staticfiles import StaticFiles
 app.mount("/images", StaticFiles(directory="/project_data/all_images"), name="images")
+
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+@app.get("/ui")
+def serve_ui():
+    return FileResponse("app/static/index.html")
