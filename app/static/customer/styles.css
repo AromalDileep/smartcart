@@ -1,4 +1,6 @@
-/* ----------- GENERAL ------------ */
+/* ================================
+   GENERAL
+================================ */
 body {
   font-family: "Amazon Ember", Arial, sans-serif;
   background: #e3e6e6;
@@ -12,66 +14,119 @@ h2 {
   margin-bottom: 20px;
 }
 
-/* ----------- SEARCH BAR ------------ */
+/* ================================
+   SEARCH BAR
+================================ */
 #search-container {
   display: flex;
-  gap: 0;
-  margin-bottom: 25px;
+  align-items: center;
   max-width: 800px;
+  margin-bottom: 25px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
   overflow: hidden;
+  border: 1px solid #ccc;
 }
 
-input[type="text"] {
+#search-container input[type="text"] {
   flex: 1;
   padding: 10px 15px;
   font-size: 16px;
-  border: 1px solid #ccc;
-  border-right: none;
+  border: none;
   outline: none;
 }
 
-input[type="text"]:focus {
+#search-container input[type="text"]:focus {
   box-shadow: 0 0 0 3px #e77600;
   z-index: 2;
 }
 
-button {
+#uploadLabel {
+  background: #ddd;
+  padding: 10px 14px;
+  border-left: 1px solid #aaa;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+#uploadLabel:hover {
+  background: #ccc;
+}
+
+#imageInput {
+  display: none; /* hide file input */
+}
+
+#search-container button {
   padding: 10px 20px;
   background: #febd69;
   color: #111;
-  border: 1px solid #a88734;
-  border-left: none;
+  border-left: 1px solid #a88734;
+  cursor: pointer;
+  font-weight: bold;
+  border: none;
+}
+
+#search-container button:hover {
+  background: #f3a847;
+}
+
+/* ================================
+   IMAGE PREVIEW
+================================ */
+#imagePreviewContainer {
+  position: relative;
+  width: 180px;
+  margin-top: 10px;
+}
+
+#imagePreviewContainer.hidden {
+  display: none;
+}
+
+#imagePreview {
+  width: 100%;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+}
+
+#removeImageBtn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
   cursor: pointer;
   font-weight: bold;
 }
 
-button:hover {
-  background: #f3a847;
-}
-
-/* ----------- GRID ------------ */
+/* ================================
+   RESULTS GRID
+================================ */
 #results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 20px;
 }
 
-/* ----------- PRODUCT CARD ------------ */
+/* ================================
+   PRODUCT CARD
+================================ */
 .product-card {
   background: white;
   border: 1px solid #ddd;
-  border-radius: 0px; /* Amazon cards are often square-ish or slightly rounded */
   padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  height: 400px; /* Fixed height for uniformity */
+  height: 400px;
 }
 
 .product-card:hover {
-  /* Amazon doesn't do much hover scale, maybe just a subtle shadow */
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
@@ -85,10 +140,8 @@ button:hover {
 .product-title {
   font-size: 16px;
   font-weight: 500;
-  line-height: 1.3;
   color: #0f1111;
   margin-bottom: 5px;
-  /* Limit lines */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -107,50 +160,33 @@ button:hover {
   content: "$";
   font-size: 12px;
   position: relative;
-  top: -5px;
+  top: -4px;
 }
 
 .product-desc {
   font-size: 14px;
   color: #565959;
-  margin-bottom: 10px;
-  /* Limit lines */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
-/* Placeholder for buttons/ratings if we add them later */
-.card-actions {
-  margin-top: auto;
-}
-/* ===== IMAGE SEARCH BOX ===== */
-#image-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-/* ===== HYBRID BOX ===== */
-#hybrid-box {
-  background: white;
-  padding: 15px;
+/* Weight Slider Box */
+#weightBox {
+  margin-top: 10px;
+  max-width: 300px;
+  background: #fff;
+  padding: 10px 15px;
   border-radius: 6px;
   border: 1px solid #ccc;
-  max-width: 800px;
-  margin-bottom: 30px;
 }
 
-#hybrid-box input[type="file"],
-#hybrid-box input[type="text"] {
-  margin-bottom: 10px;
-  width: 100%;
+#weightBox.hidden {
+  display: none;
 }
 
 #weightSlider {
-  width: 200px;
-  margin-left: 5px;
+  width: 180px;
+  margin: 0 10px;
 }

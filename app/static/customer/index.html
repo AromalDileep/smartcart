@@ -8,24 +8,23 @@
   <body>
     <h2>SmartCart — Product Search</h2>
 
-    <!-- 🔍 TEXT SEARCH -->
+    <!-- Unified Search Bar -->
     <div id="search-container">
-      <input type="text" id="textQuery" placeholder="Search for products..." />
-      <button onclick="textSearch()">Search</button>
-    </div>
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search for products..."
+      />
 
-    <!-- 🖼️ IMAGE SEARCH -->
-    <div id="image-search">
+      <label for="imageInput" id="uploadLabel">📷</label>
       <input type="file" id="imageInput" accept="image/*" />
-      <button onclick="imageSearch()">Image Search</button>
+
+      <button id="searchBtn" onclick="performSearch()">Search</button>
     </div>
 
-    <!-- 🧪 HYBRID SEARCH -->
-    <div id="hybrid-box">
-      <input type="file" id="hybridImage" accept="image/*" />
-      <input type="text" id="hybridText" placeholder="Enter text..." />
-
-      <label>Image/Text Balance:</label>
+    <!-- Weight Slider (Visible only when hybrid) -->
+    <div id="weightBox" class="hidden">
+      <label>Text/Image Balance:</label>
       <input
         type="range"
         id="weightSlider"
@@ -35,11 +34,14 @@
         value="0.5"
       />
       <span id="weightValue">0.5</span>
-
-      <button onclick="hybridSearch()">Hybrid Search</button>
     </div>
 
-    <!-- RESULTS -->
+    <!-- Image Preview -->
+    <div id="imagePreviewContainer" class="hidden">
+      <img id="imagePreview" />
+      <button id="removeImageBtn" onclick="removeImage()">✕</button>
+    </div>
+
     <div id="results"></div>
 
     <script src="/static/customer/app.js"></script>

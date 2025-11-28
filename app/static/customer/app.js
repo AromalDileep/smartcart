@@ -1,64 +1,128 @@
 const API_BASE = "http://localhost:8000/search";
 
-/* ================================
-   🔍 TEXT SEARCH
-================================ */
-async function textSearch() {
-  const query = document.getElementById("textQuery").value;
-  if (!query) return alert("Enter search text");
-
-  const res = await fetch(
-    `${API_BASE}/text?query=${encodeURIComponent(query)}&k=20`
-  );
-
-  renderResults(await res.json());
-}
+let selectedImageFile = null;
 
 /* ================================
-   🖼️ IMAGE SEARCH
+   IMAGE PREVIEW HANDLING
 ================================ */
-async function imageSearch() {
-  const file = document.getElementById("imageInput").files[0];
-  if (!file) return alert("Select an image");
+document
+  .getElementById("imageInput")
+  .addEventListener("change", function (event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append("image", file);
+    selectedImageFile = file;
 
-  const res = await fetch(`${API_BASE}/image?k=20`, {
-    method: "POST",
-    body: formData,
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      document.getElementById("imagePreview").src = e.target.result;
+      document
+        .getElementById("imagePreviewContainer")
+        .classList.remove("hidden");
+    };
+    reader.readAsDataURL(file);
+
+    updateWeightBoxVisibility();
   });
 
-  renderResults(await res.json());
+function removeImage() {
+  selectedImageFile = null;
+  document.getElementById("imageInput").value = "";
+  document.getElementById("imagePreviewContainer").classList.add("hidden");
+
+  updateWeightBoxVisibility();
 }
 
 /* ================================
-   🧪 HYBRID SEARCH
+   ENTER KEY = SEARCH
 ================================ */
-async function hybridSearch() {
-  const file = document.getElementById("hybridImage").files[0];
-  const text = document.getElementById("hybridText").value;
+document
+  .getElementById("searchInput")
+  .addEventListener("keydown", function (e) {
+    if (e.key === "Enter") performSearch();
+  });
 
-  if (!file && !text) return alert("Provide at least text or an image");
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") performSearch();
+});
 
-  const weight = parseFloat(document.getElementById("weightSlider").value);
+/* ================================
+   WEIGHT SLIDER LOGIC
+================================ */
+document.getElementById("weightSlider").addEventListener("input", function () {
+  document.getElementById("weightValue").innerText = this.value;
+});
+
+function updateWeightBoxVisibility() {
+  const text = document.getElementById("searchInput").value.trim();
+  const weightBox = document.getElementById("weightBox");
+
+  if (text && selectedImageFile) {
+    weightBox.classList.remove("hidden");
+  } else {
+    weightBox.classList.add("hidden");
+  }
+}
+
+// When user types, show/hide weight slider
+document
+  .getElementById("searchInput")
+  .addEventListener("input", updateWeightBoxVisibility);
+
+/* ================================
+   UNIFIED SEARCH LOGIC
+================================ */
+async function performSearch() {
+  const text = document.getElementById("searchInput").value.trim();
+
+  // Nothing provided
+  if (!text && !selectedImageFile) {
+    alert("Please enter text or upload an image");
+    return;
+  }
+
+  // TEXT ONLY
+  if (text && !selectedImageFile) {
+    const res = await fetch(
+      `${API_BASE}/text?query=${encodeURIComponent(text)}&k=20`
+    );
+    return renderResults(await res.json());
+  }
+
+  // IMAGE ONLY
+  if (!text && selectedImageFile) {
+    const formData = new FormData();
+    formData.append("image", selectedImageFile);
+
+    const res = await fetch(`${API_BASE}/image?k=20`, {
+      method: "POST",
+      body: formData,
+    });
+
+    return renderResults(await res.json());
+  }
+
+  // HYBRID (both)
+  const w_image = parseFloat(document.getElementById("weightSlider").value);
+  const w_text = 1 - w_image;
 
   const formData = new FormData();
+  formData.append("image", selectedImageFile);
   formData.append("text", text);
-  formData.append("image", file);
-  formData.append("w_image", weight);
-  formData.append("w_text", 1 - weight);
+  formData.append("w_image", w_image);
+  formData.append("w_text", w_text);
 
   const res = await fetch(`${API_BASE}/hybrid?k=20`, {
     method: "POST",
     body: formData,
   });
 
-  renderResults(await res.json());
+  return renderResults(await res.json());
 }
 
 /* ================================
-   🎨 RESULT RENDERING
+   RENDER RESULTS
 ================================ */
 function renderResults(list) {
   const container = document.getElementById("results");
@@ -83,8 +147,3 @@ function renderResults(list) {
     container.appendChild(div);
   });
 }
-
-/* Update weight label */
-document.getElementById("weightSlider").oninput = function () {
-  document.getElementById("weightValue").innerText = this.value;
-};
