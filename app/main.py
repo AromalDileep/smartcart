@@ -1,6 +1,8 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import logging
 
 # DB table initialization
@@ -76,15 +78,14 @@ async def on_startup():
 async def on_shutdown():
     logger.info("SmartCart app shutting down")
 
-from fastapi.staticfiles import StaticFiles
+
 app.mount("/images", StaticFiles(directory="/project_data/all_images"), name="images")
 
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.get("/ui")
 def serve_ui():
-    return FileResponse("app/static/index.html")
+    return FileResponse("app/static/customer/index.html")
