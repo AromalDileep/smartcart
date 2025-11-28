@@ -126,3 +126,31 @@ button:hover {
 .card-actions {
   margin-top: auto;
 }
+/* ===== IMAGE SEARCH BOX ===== */
+#image-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* ===== HYBRID BOX ===== */
+#hybrid-box {
+  background: white;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  max-width: 800px;
+  margin-bottom: 30px;
+}
+
+#hybrid-box input[type="file"],
+#hybrid-box input[type="text"] {
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+#weightSlider {
+  width: 200px;
+  margin-left: 5px;
+}

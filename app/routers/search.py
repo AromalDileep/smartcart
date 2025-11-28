@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Form
+from typing import Optional
 from app.services.search_service import search_by_image, search_by_text, search_hybrid
 
 router = APIRouter()
@@ -12,23 +13,26 @@ def text_search(
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     return search_by_text(query, top_k=k)
 
+
 @router.post("/image")
-async def image_search(file: UploadFile = File(...), k: int = 10):
-    if file.content_type not in ["image/jpeg", "image/png"]:
-        raise HTTPException(status_code=400, detail="Image must be JPG or PNG")
-    bytes_data = await file.read()
-    return search_by_image(bytes_data, top_k=k)
+async def image_search(
+    image: UploadFile = File(...),
+    k: int = 10
+):
+    img_bytes = await image.read()
+    return search_by_image(img_bytes, top_k=k)
+
 
 @router.post("/hybrid")
 async def hybrid_search_endpoint(
-    file: UploadFile = File(...),
-    text: str = None,
-    w_image: float = 0.5,
-    w_text: float = 0.5,
-    k: int = 10
+    image: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
+    w_image: float = Form(0.5),
+    w_text: float = Form(0.5),
+    k: int = Query(10)
 ):
-    if not text:
-        raise HTTPException(status_code=400, detail="Text is required for hybrid search")
+    img_bytes = None
+    if image:
+        img_bytes = await image.read()
 
-    bytes_data = await file.read()
-    return search_hybrid(bytes_data, text, w_image, w_text, top_k=k)
+    return search_hybrid(img_bytes, text, w_image, w_text, top_k=k)

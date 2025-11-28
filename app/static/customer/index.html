@@ -4,14 +4,42 @@
     <title>SmartCart Search</title>
     <link rel="stylesheet" href="/static/customer/styles.css" />
   </head>
-  <body>
-    <h2>SmartCart — Product Search (Amazon Style)</h2>
 
+  <body>
+    <h2>SmartCart — Product Search</h2>
+
+    <!-- 🔍 TEXT SEARCH -->
     <div id="search-container">
       <input type="text" id="textQuery" placeholder="Search for products..." />
       <button onclick="textSearch()">Search</button>
     </div>
 
+    <!-- 🖼️ IMAGE SEARCH -->
+    <div id="image-search">
+      <input type="file" id="imageInput" accept="image/*" />
+      <button onclick="imageSearch()">Image Search</button>
+    </div>
+
+    <!-- 🧪 HYBRID SEARCH -->
+    <div id="hybrid-box">
+      <input type="file" id="hybridImage" accept="image/*" />
+      <input type="text" id="hybridText" placeholder="Enter text..." />
+
+      <label>Image/Text Balance:</label>
+      <input
+        type="range"
+        id="weightSlider"
+        min="0"
+        max="1"
+        step="0.1"
+        value="0.5"
+      />
+      <span id="weightValue">0.5</span>
+
+      <button onclick="hybridSearch()">Hybrid Search</button>
+    </div>
+
+    <!-- RESULTS -->
     <div id="results"></div>
 
     <script src="/static/customer/app.js"></script>
