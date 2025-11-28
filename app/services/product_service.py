@@ -1,20 +1,27 @@
-from app.db.database import get_connection
+# app/services/product_service.py
+from typing import Optional, List, Dict
 from app.schemas.product_schema import ProductCreate, ProductUpdate
+from app.db.database import get_connection  # keep your existing import pattern
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
+# Optional constant to help router fallback if needed (not required)
+FAISS_INDEX_POS = None
 
 # -----------------------------------
 # CREATE PRODUCT (Seller uploads)
 # -----------------------------------
-def create_product(product: ProductCreate):
+def create_product(product: ProductCreate, seller_id: int) -> int:
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
         INSERT INTO products 
-        (title, description, price, image, status, main_category, categories, features, details, product_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (seller_id, title, description, price, image, status, main_category, categories, features, details, product_url, context)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id;
     """, (
+        seller_id,
         product.title,
         product.description,
         product.price,
@@ -24,7 +31,8 @@ def create_product(product: ProductCreate):
         product.categories,
         product.features,
         product.details,
-        product.product_url
+        product.product_url,
+        getattr(product, "context", None)
     ))
 
     new_id = cur.fetchone()[0]
@@ -37,22 +45,44 @@ def create_product(product: ProductCreate):
 # -----------------------------------
 # GET PRODUCT BY ID
 # -----------------------------------
-def get_product(product_id: int):
+def get_product(product_id: int) -> Optional[Dict]:
     conn = get_connection()
-    cur = conn.cursor()
+    # Use RealDictCursor for convenience (dict result)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute("SELECT * FROM products WHERE id = %s;", (product_id,))
     row = cur.fetchone()
 
     cur.close()
     conn.close()
-    return row
+    return dict(row) if row else None
 
 
 # -----------------------------------
-# GET ALL PRODUCTS
+# GET PRODUCTS BY SELLER
 # -----------------------------------
-def get_all_products():
+def get_products_by_seller(seller_id: int) -> List[Dict]:
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    cur.execute("""
+        SELECT id, seller_id, title, description, price, image, status, faiss_index, created_at, main_category, categories, average_rating
+        FROM products
+        WHERE seller_id = %s
+        ORDER BY id DESC;
+    """, (seller_id,))
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return [dict(r) for r in rows]
+
+
+# -----------------------------------
+# GET ALL PRODUCTS (keeps previous behavior)
+# -----------------------------------
+def get_all_products() -> List:
     conn = get_connection()
     cur = conn.cursor()
 
@@ -67,7 +97,7 @@ def get_all_products():
 # -----------------------------------
 # UPDATE PRODUCT
 # -----------------------------------
-def update_product(product_id: int, product: ProductUpdate):
+def update_product(product_id: int, product: ProductUpdate) -> bool:
     conn = get_connection()
     cur = conn.cursor()
 
@@ -84,6 +114,7 @@ def update_product(product_id: int, product: ProductUpdate):
         "features": product.features,
         "details": product.details,
         "product_url": product.product_url,
+        "context": getattr(product, "context", None),
         "status": product.status
     }
 
@@ -93,6 +124,8 @@ def update_product(product_id: int, product: ProductUpdate):
             values.append(value)
 
     if not updates:
+        cur.close()
+        conn.close()
         return False
 
     values.append(product_id)
@@ -108,10 +141,15 @@ def update_product(product_id: int, product: ProductUpdate):
 # -----------------------------------
 # DELETE PRODUCT
 # -----------------------------------
-def delete_product(product_id: int):
+def delete_product(product_id: int) -> bool:
     conn = get_connection()
     cur = conn.cursor()
 
+    # First fetch image filename (optional)
+    cur.execute("SELECT image FROM products WHERE id = %s;", (product_id,))
+    _ = cur.fetchone()
+
+    # Delete row
     cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
     conn.commit()
 

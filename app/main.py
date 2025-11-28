@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import logging
 
-# DB table initialization
+# DB auto-init
 from app.db.models import create_products_table
 
 logger = logging.getLogger("uvicorn.error")
@@ -16,20 +16,40 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# --------------------------------------------
-# CORS (later replace "*" with frontend domain)
-# --------------------------------------------
+# ---------------------------------------------------------
+# CORS (safe for development; tighten in production)
+# ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],         # SAFE for development
+    allow_origins=["*"],       
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --------------------------------------------
-# Routers (safe import, no crash if missing)
-# --------------------------------------------
+# ---------------------------------------------------------
+# STATIC FILE MOUNTS (CSS/JS/HTML/Images)
+# ---------------------------------------------------------
+
+# Serve images from the Docker volume
+# Example: http://localhost:8000/images/myimage.jpg
+app.mount(
+    "/images",
+    StaticFiles(directory="/project_data/all_images"),
+    name="images"
+)
+
+# Serve static HTML/JS/CSS from app/static/
+# Example: http://localhost:8000/static/seller/index.html
+app.mount(
+    "/static",
+    StaticFiles(directory="app/static"),
+    name="static"
+)
+
+# ---------------------------------------------------------
+# Routers
+# ---------------------------------------------------------
 def include_routers():
     try:
         from app.routers.search import router as search_router
@@ -55,37 +75,34 @@ def include_routers():
     except Exception as e:
         logger.debug(f"Seller router not available yet: {e}")
 
-
 include_routers()
 
-# --------------------------------------------
-# Health check
-# --------------------------------------------
+# ---------------------------------------------------------
+# Health Check
+# ---------------------------------------------------------
 @app.get("/", summary="Root")
 async def root():
     return {"message": "SmartCart API is running"}
 
-# --------------------------------------------
-# Startup / Shutdown
-# --------------------------------------------
+# ---------------------------------------------------------
+# Startup & Shutdown Actions
+# ---------------------------------------------------------
 @app.on_event("startup")
 async def on_startup():
-    logger.info("SmartCart app starting up")
-    create_products_table()  # <---- IMPORTANT: auto-create table
-    logger.info("Products table ready")
+    logger.info("SmartCart API starting up...")
+    create_products_table()
+    logger.info("Products table ensured.")
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    logger.info("SmartCart app shutting down")
+    logger.info("SmartCart API shutting down...")
 
+# ---------------------------------------------------------
+# Shortcuts
+# ---------------------------------------------------------
 
-app.mount("/images", StaticFiles(directory="/project_data/all_images"), name="images")
-
-
-
-
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
+# Quick UI redirect (optional)
 @app.get("/ui")
 def serve_ui():
+    """Serve customer UI from /static"""
     return FileResponse("app/static/customer/index.html")
