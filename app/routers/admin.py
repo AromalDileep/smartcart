@@ -54,7 +54,7 @@ IMAGE_DIR = "/project_data/all_images"
 # 1. List pending products
 # ---------------------------------------
 @router.get("/pending-products", response_model=List[dict])
-def list_pending_products():
+def list_pending_products(offset: int = 0, limit: int = 20):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -62,8 +62,9 @@ def list_pending_products():
         SELECT id, title, description, price, image, status, created_at, seller_id
         FROM products
         WHERE status = 'pending'
-        ORDER BY created_at ASC;
-    """)
+        ORDER BY created_at ASC
+        LIMIT %s OFFSET %s;
+    """, (limit, offset))
 
     rows = cur.fetchall()
     cur.close()
@@ -180,7 +181,7 @@ def reject_product(product_id: int, admin_id: int = ADMIN_ID):
 # 4. List approved products
 # ---------------------------------------
 @router.get("/approved-products", response_model=List[dict])
-def list_approved_products():
+def list_approved_products(offset: int = 0, limit: int = 50):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -188,8 +189,9 @@ def list_approved_products():
         SELECT id, title, price, image, faiss_index, approved_at, seller_id
         FROM products
         WHERE status = 'approved'
-        ORDER BY approved_at DESC;
-    """)
+        ORDER BY approved_at DESC
+        LIMIT %s OFFSET %s;
+    """, (limit, offset))
 
     rows = cur.fetchall()
     cur.close()
@@ -208,6 +210,7 @@ def list_approved_products():
         })
 
     return results
+
 
 
 # ---------------------------------------

@@ -52,6 +52,7 @@ input {
   background: #fafafa;
 }
 
+/* Buttons */
 button {
   background: #0b74f0;
   color: white;
@@ -61,9 +62,24 @@ button {
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
+  transition: background 0.2s ease;
 }
 
 button:hover {
+  background: #095ccd;
+}
+
+/* Small buttons */
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 5px;
+  background: #0b74f0;
+  transition: background 0.2s ease;
+  margin-right: 6px;
+}
+
+.btn-sm:hover {
   background: #095ccd;
 }
 
@@ -80,6 +96,11 @@ button:hover {
   background: #e7e9ec;
   cursor: pointer;
   font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab:hover {
+  background: #d5d7db;
 }
 
 .tab.active {
@@ -93,24 +114,48 @@ button:hover {
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
 }
 
 /* Table */
 table {
   width: 100%;
   border-collapse: collapse;
+  overflow-x: auto;
 }
 
-table th,
+table th {
+  padding: 12px 10px;
+  background: #f0f0f0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 14px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
 table td {
   padding: 10px;
   border-bottom: 1px solid #eee;
   text-align: left;
+  vertical-align: middle;
+  font-size: 14px;
 }
 
+/* Row hover effect */
+table tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Zebra rows for readability */
+table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+/* Table images */
 table img {
   max-width: 70px;
   border-radius: 4px;
+  border: 1px solid #ddd;
 }
 
 /* Status badge */
@@ -118,21 +163,38 @@ table img {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
+  font-weight: 600;
 }
 
 .badge.pending {
   background: #ffe58f;
 }
+
 .badge.approved {
   background: #b7eb8f;
 }
+
 .badge.rejected {
   background: #ffa39e;
 }
 
-/* Buttons small */
-.btn-sm {
-  padding: 6px 10px;
-  font-size: 12px;
-  margin-right: 6px;
+/* Load More button spacing */
+#pendingLoadMore,
+#approvedLoadMore {
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+/* Tools Panel */
+#toolsPanel button {
+  margin-right: 10px;
+}
+
+#toolsStatus {
+  background: #fafafa;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  border: 1px solid #eee;
 }

@@ -1,6 +1,15 @@
-// -----------------------------
+// ----------------------------------------
+// GLOBAL PAGINATION STATE
+// ----------------------------------------
+let pendingOffset = 0;
+const pendingLimit = 20;
+
+let approvedOffset = 0;
+const approvedLimit = 50;
+
+// ----------------------------------------
 // Redirect to login if not authenticated
-// -----------------------------
+// ----------------------------------------
 function checkLogin() {
   const admin_id = localStorage.getItem("admin_id");
   if (!admin_id && window.location.pathname.includes("index.html")) {
@@ -9,9 +18,9 @@ function checkLogin() {
 }
 checkLogin();
 
-// -----------------------------
-// ADMIN LOGIN
-// -----------------------------
+// ----------------------------------------
+// ADMIN LOGIN PAGE
+// ----------------------------------------
 if (window.location.pathname.includes("login.html")) {
   document.getElementById("loginBtn").onclick = async () => {
     const email = document.getElementById("email").value.trim();
@@ -36,9 +45,9 @@ if (window.location.pathname.includes("login.html")) {
   };
 }
 
-// -----------------------------
-// Logout
-// -----------------------------
+// ----------------------------------------
+// LOGOUT
+// ----------------------------------------
 if (window.location.pathname.includes("index.html")) {
   document.getElementById("logoutBtn").onclick = () => {
     localStorage.removeItem("admin_id");
@@ -46,39 +55,52 @@ if (window.location.pathname.includes("index.html")) {
   };
 }
 
-// -----------------------------
-// Tabs
-// -----------------------------
+// ----------------------------------------
+// TABS
+// ----------------------------------------
 function activateTab(name) {
+  // Remove active from all tabs
   document
     .querySelectorAll(".tab")
     .forEach((t) => t.classList.remove("active"));
+
+  // Hide all panels
   document
     .querySelectorAll(".panel")
     .forEach((p) => (p.style.display = "none"));
 
+  // Activate selected tab + panel
   document.querySelector(`.tab[data-tab=${name}]`).classList.add("active");
   document.getElementById(`${name}Panel`).style.display = "block";
 
-  if (name === "pending") loadPending();
-  if (name === "approved") loadApproved();
+  // Reset pagination when switching tabs
+  if (name === "pending") {
+    loadPending(true);
+  }
+  if (name === "approved") {
+    loadApproved(true);
+  }
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.onclick = () => activateTab(tab.dataset.tab);
 });
 
-// -----------------------------
-// Pending Products
-// -----------------------------
-async function loadPending() {
+// ----------------------------------------
+// PENDING PRODUCTS (WITH PAGINATION)
+// ----------------------------------------
+async function loadPending(reset = false) {
   const tb = document.querySelector("#pendingTable tbody");
-  tb.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
 
-  const res = await fetch("/admin/pending-products");
+  if (reset) {
+    pendingOffset = 0;
+    tb.innerHTML = ""; // clear table
+  }
+
+  const res = await fetch(
+    `/admin/pending-products?offset=${pendingOffset}&limit=${pendingLimit}`
+  );
   const rows = await res.json();
-
-  tb.innerHTML = "";
 
   for (const r of rows) {
     tb.innerHTML += `
@@ -96,40 +118,58 @@ async function loadPending() {
     `;
   }
 
+  // Bind buttons
   document.querySelectorAll(".approveBtn").forEach((btn) => {
     btn.onclick = () => approveProduct(btn.dataset.id);
   });
-
   document.querySelectorAll(".rejectBtn").forEach((btn) => {
     btn.onclick = () => rejectProduct(btn.dataset.id);
   });
+
+  // Update offset
+  pendingOffset += rows.length;
+
+  // Show/hide load more button
+  const loadMoreBtn = document.getElementById("pendingLoadMore");
+  if (rows.length < pendingLimit) {
+    loadMoreBtn.style.display = "none";
+  } else {
+    loadMoreBtn.style.display = "block";
+  }
 }
+
+// Load more button for pending
+document.getElementById("pendingLoadMore").onclick = () => loadPending(false);
 
 async function approveProduct(id) {
   const res = await fetch(`/admin/approve/${id}`, { method: "POST" });
   const j = await res.json();
   if (!res.ok) return alert("Error: " + j.detail);
-  loadPending();
+  loadPending(true); // reload list
 }
 
 async function rejectProduct(id) {
   const res = await fetch(`/admin/reject/${id}`, { method: "POST" });
   const j = await res.json();
   if (!res.ok) return alert("Error: " + j.detail);
-  loadPending();
+  loadPending(true);
 }
 
-// -----------------------------
-// Approved Products
-// -----------------------------
-async function loadApproved() {
+// ----------------------------------------
+// APPROVED PRODUCTS (WITH PAGINATION)
+// ----------------------------------------
+async function loadApproved(reset = false) {
   const tb = document.querySelector("#approvedTable tbody");
-  tb.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
 
-  const res = await fetch("/admin/approved-products");
+  if (reset) {
+    approvedOffset = 0;
+    tb.innerHTML = "";
+  }
+
+  const res = await fetch(
+    `/admin/approved-products?offset=${approvedOffset}&limit=${approvedLimit}`
+  );
   const rows = await res.json();
-
-  tb.innerHTML = "";
 
   for (const r of rows) {
     tb.innerHTML += `
@@ -146,34 +186,57 @@ async function loadApproved() {
     `;
   }
 
+  // bind delete
   document.querySelectorAll(".deleteBtn").forEach((btn) => {
     btn.onclick = () => deleteProduct(btn.dataset.id);
   });
+
+  // update offset
+  approvedOffset += rows.length;
+
+  // Show/hide Load More
+  const loadMoreBtn = document.getElementById("approvedLoadMore");
+  if (rows.length < approvedLimit) {
+    loadMoreBtn.style.display = "none";
+  } else {
+    loadMoreBtn.style.display = "block";
+  }
 }
 
+// Load more button for approved
+document.getElementById("approvedLoadMore").onclick = () => loadApproved(false);
+
 async function deleteProduct(id) {
-  if (!confirm("Delete product permanently?")) return;
+  if (!confirm("Delete this product permanently?")) return;
 
   const res = await fetch(`/admin/delete/${id}`, { method: "DELETE" });
   const j = await res.json();
 
   if (!res.ok) return alert("Error: " + j.detail);
-  loadApproved();
+
+  loadApproved(true); // reload list cleanly
 }
 
-// -----------------------------
-// Tools
-// -----------------------------
+// ----------------------------------------
+// TOOLS
+// ----------------------------------------
 document.getElementById("rebuildBtn").onclick = async () => {
   const res = await fetch("/admin/rebuild-faiss", { method: "POST" });
   const j = await res.json();
   document.getElementById("toolsStatus").textContent =
-    "Rebuilt FAISS, vectors: " + j.count;
+    "Rebuilt FAISS Index. Vectors: " + j.count;
 };
 
 document.getElementById("backupBtn").onclick = async () => {
   const res = await fetch("/admin/backup-faiss", { method: "POST" });
   const j = await res.json();
   document.getElementById("toolsStatus").textContent =
-    "Backup done → " + j.path;
+    "Backup created → " + j.path;
 };
+
+// ----------------------------------------
+// Initial tab (pending)
+// ----------------------------------------
+if (window.location.pathname.includes("index.html")) {
+  activateTab("pending");
+}
