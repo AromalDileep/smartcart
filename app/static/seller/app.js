@@ -56,12 +56,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const context = document.getElementById("context").value;
 
       // If user selected a file, upload it first
-      let filename = null;
       const file = imageFileInput.files[0];
-      if (file) {
-        const up = await uploadImage(file);
-        filename = up.filename;
+      if (!file) {
+        uploadStatus.textContent = "Please select an image before submitting.";
+        return;
       }
+
+      const up = await uploadImage(file);
+      let filename = up.filename;
 
       const payload = {
         seller_id,
