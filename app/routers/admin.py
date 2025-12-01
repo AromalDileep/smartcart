@@ -295,3 +295,35 @@ def backup_faiss():
     backup_path = faiss_mgr.backup_index()
 
     return {"status": "backup_done", "path": backup_path}
+# ---------------------------------------
+# 8. FAISS + DB STATS (for dashboard)
+# ---------------------------------------
+@router.get("/faiss-stats")
+def faiss_stats():
+    ensure_services()
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # total products in DB
+    cur.execute("SELECT COUNT(*) FROM products;")
+    total_products = cur.fetchone()[0]
+
+    # total approved products
+    cur.execute("SELECT COUNT(*) FROM products WHERE status = 'approved';")
+    approved_products = cur.fetchone()[0]
+
+    # FAISS vector count
+    try:
+        faiss_vectors = faiss_mgr.index.ntotal
+    except Exception:
+        faiss_vectors = 0
+
+    cur.close()
+    conn.close()
+
+    return {
+        "total_products": total_products,
+        "approved_products": approved_products,
+        "faiss_vectors": faiss_vectors,
+    }

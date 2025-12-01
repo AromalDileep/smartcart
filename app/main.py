@@ -84,14 +84,23 @@ include_routers()
 async def root():
     return {"message": "SmartCart API is running"}
 
+
 # ---------------------------------------------------------
 # Startup & Shutdown Actions
 # ---------------------------------------------------------
 @app.on_event("startup")
 async def on_startup():
-    logger.info("SmartCart API starting up...")
+    logger.info("SmartCart app starting up")
+
+    # Ensure DB table exists
     create_products_table()
     logger.info("Products table ensured.")
+
+    # Auto-fix sequence
+    from app.utils.db_sequence_fix import fix_product_id_sequence
+    fix_product_id_sequence()
+    logger.info("Product ID sequence synchronized.")
+
 
 @app.on_event("shutdown")
 async def on_shutdown():

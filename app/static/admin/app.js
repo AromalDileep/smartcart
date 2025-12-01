@@ -56,30 +56,24 @@ if (window.location.pathname.includes("index.html")) {
 }
 
 // ----------------------------------------
-// TABS
+// TABS + LOAD STATS WHEN TOOLS TAB IS OPENED
 // ----------------------------------------
 function activateTab(name) {
-  // Remove active from all tabs
   document
     .querySelectorAll(".tab")
     .forEach((t) => t.classList.remove("active"));
-
-  // Hide all panels
   document
     .querySelectorAll(".panel")
     .forEach((p) => (p.style.display = "none"));
 
-  // Activate selected tab + panel
   document.querySelector(`.tab[data-tab=${name}]`).classList.add("active");
   document.getElementById(`${name}Panel`).style.display = "block";
 
-  // Reset pagination when switching tabs
-  if (name === "pending") {
-    loadPending(true);
-  }
-  if (name === "approved") {
-    loadApproved(true);
-  }
+  if (name === "pending") loadPending(true);
+  if (name === "approved") loadApproved(true);
+
+  // ⭐ Load FAISS stats only when Tools tab is opened
+  if (name === "tools") loadFaissStats();
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -94,7 +88,7 @@ async function loadPending(reset = false) {
 
   if (reset) {
     pendingOffset = 0;
-    tb.innerHTML = ""; // clear table
+    tb.innerHTML = "";
   }
 
   const res = await fetch(
@@ -118,7 +112,6 @@ async function loadPending(reset = false) {
     `;
   }
 
-  // Bind buttons
   document.querySelectorAll(".approveBtn").forEach((btn) => {
     btn.onclick = () => approveProduct(btn.dataset.id);
   });
@@ -126,26 +119,19 @@ async function loadPending(reset = false) {
     btn.onclick = () => rejectProduct(btn.dataset.id);
   });
 
-  // Update offset
   pendingOffset += rows.length;
 
-  // Show/hide load more button
   const loadMoreBtn = document.getElementById("pendingLoadMore");
-  if (rows.length < pendingLimit) {
-    loadMoreBtn.style.display = "none";
-  } else {
-    loadMoreBtn.style.display = "block";
-  }
+  loadMoreBtn.style.display = rows.length < pendingLimit ? "none" : "block";
 }
 
-// Load more button for pending
 document.getElementById("pendingLoadMore").onclick = () => loadPending(false);
 
 async function approveProduct(id) {
   const res = await fetch(`/admin/approve/${id}`, { method: "POST" });
   const j = await res.json();
   if (!res.ok) return alert("Error: " + j.detail);
-  loadPending(true); // reload list
+  loadPending(true);
 }
 
 async function rejectProduct(id) {
@@ -186,24 +172,16 @@ async function loadApproved(reset = false) {
     `;
   }
 
-  // bind delete
   document.querySelectorAll(".deleteBtn").forEach((btn) => {
     btn.onclick = () => deleteProduct(btn.dataset.id);
   });
 
-  // update offset
   approvedOffset += rows.length;
 
-  // Show/hide Load More
   const loadMoreBtn = document.getElementById("approvedLoadMore");
-  if (rows.length < approvedLimit) {
-    loadMoreBtn.style.display = "none";
-  } else {
-    loadMoreBtn.style.display = "block";
-  }
+  loadMoreBtn.style.display = rows.length < approvedLimit ? "none" : "block";
 }
 
-// Load more button for approved
 document.getElementById("approvedLoadMore").onclick = () => loadApproved(false);
 
 async function deleteProduct(id) {
@@ -211,10 +189,32 @@ async function deleteProduct(id) {
 
   const res = await fetch(`/admin/delete/${id}`, { method: "DELETE" });
   const j = await res.json();
-
   if (!res.ok) return alert("Error: " + j.detail);
 
-  loadApproved(true); // reload list cleanly
+  loadApproved(true);
+}
+
+// ----------------------------------------
+// ⭐ NEW: FAISS STATS FETCHER
+// ----------------------------------------
+async function loadFaissStats() {
+  try {
+    const res = await fetch("/admin/faiss-stats");
+    const j = await res.json();
+
+    if (!res.ok) throw new Error(j.detail || "Failed to load stats");
+
+    // MATCH HTML IDs
+    document.getElementById("stat_total_products").textContent =
+      j.total_products;
+
+    document.getElementById("stat_approved_products").textContent =
+      j.approved_products;
+
+    document.getElementById("stat_faiss_vectors").textContent = j.faiss_vectors;
+  } catch (err) {
+    console.error("Failed loading stats:", err);
+  }
 }
 
 // ----------------------------------------
@@ -223,13 +223,17 @@ async function deleteProduct(id) {
 document.getElementById("rebuildBtn").onclick = async () => {
   const res = await fetch("/admin/rebuild-faiss", { method: "POST" });
   const j = await res.json();
+
   document.getElementById("toolsStatus").textContent =
     "Rebuilt FAISS Index. Vectors: " + j.count;
+
+  loadFaissStats();
 };
 
 document.getElementById("backupBtn").onclick = async () => {
   const res = await fetch("/admin/backup-faiss", { method: "POST" });
   const j = await res.json();
+
   document.getElementById("toolsStatus").textContent =
     "Backup created → " + j.path;
 };

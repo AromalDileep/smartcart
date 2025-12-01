@@ -1,15 +1,15 @@
 # app/services/product_service.py
 from typing import Optional, List, Dict
 from app.schemas.product_schema import ProductCreate, ProductUpdate
-from app.db.database import get_connection  # keep your existing import pattern
+from app.db.database import get_connection
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# Optional constant to help router fallback if needed (not required)
 FAISS_INDEX_POS = None
 
+
 # -----------------------------------
-# CREATE PRODUCT (Seller uploads)
+# CREATE PRODUCT
 # -----------------------------------
 def create_product(product: ProductCreate, seller_id: int) -> int:
     conn = get_connection()
@@ -44,10 +44,10 @@ def create_product(product: ProductCreate, seller_id: int) -> int:
 
 # -----------------------------------
 # GET PRODUCT BY ID
+# REMOVE NON-JSON FIELDS (embedding)
 # -----------------------------------
 def get_product(product_id: int) -> Optional[Dict]:
     conn = get_connection()
-    # Use RealDictCursor for convenience (dict result)
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute("SELECT * FROM products WHERE id = %s;", (product_id,))
@@ -55,32 +55,49 @@ def get_product(product_id: int) -> Optional[Dict]:
 
     cur.close()
     conn.close()
-    return dict(row) if row else None
+
+    if not row:
+        return None
+
+    row = dict(row)
+
+    # IMPORTANT FIX
+    row.pop("embedding", None)
+
+    return row
 
 
 # -----------------------------------
 # GET PRODUCTS BY SELLER
+# (no embedding here, so OK)
 # -----------------------------------
 def get_products_by_seller(seller_id: int) -> List[Dict]:
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     cur.execute("""
-        SELECT id, seller_id, title, description, price, image, status, faiss_index, created_at, main_category, categories, average_rating
+        SELECT id, seller_id, title, description, price, image, status,
+               faiss_index, created_at, main_category, categories, average_rating
         FROM products
         WHERE seller_id = %s
         ORDER BY id DESC;
     """, (seller_id,))
-    rows = cur.fetchall()
 
+    rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    return [dict(r) for r in rows]
+    clean_rows = []
+    for r in rows:
+        r = dict(r)
+        r.pop("embedding", None)  # extra safety
+        clean_rows.append(r)
+
+    return clean_rows
 
 
 # -----------------------------------
-# GET ALL PRODUCTS (keeps previous behavior)
+# GET ALL PRODUCTS
 # -----------------------------------
 def get_all_products() -> List:
     conn = get_connection()
@@ -145,11 +162,9 @@ def delete_product(product_id: int) -> bool:
     conn = get_connection()
     cur = conn.cursor()
 
-    # First fetch image filename (optional)
     cur.execute("SELECT image FROM products WHERE id = %s;", (product_id,))
     _ = cur.fetchone()
 
-    # Delete row
     cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
     conn.commit()
 

@@ -7,6 +7,7 @@ const PRODUCT_URL = (id) => `/seller/products/${id}`;
 document.addEventListener("DOMContentLoaded", () => {
   const sellerIdInput = document.getElementById("sellerId");
   const refreshBtn = document.getElementById("refreshBtn");
+
   const uploadForm = document.getElementById("uploadForm");
   const imageFileInput = document.getElementById("imageFile");
   const imagePreview = document.getElementById("imagePreview");
@@ -18,7 +19,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeEdit = document.getElementById("closeEdit");
   const editForm = document.getElementById("editForm");
 
-  // Preview selected image
+  // ===============================
+  // IMAGE PREVIEW
+  // ===============================
   imageFileInput.addEventListener("change", (e) => {
     const f = e.target.files[0];
     if (!f) {
@@ -26,27 +29,36 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     const url = URL.createObjectURL(f);
-    imagePreview.innerHTML = `<img src="${url}" alt="preview" style="max-width:150px;" />`;
+    imagePreview.innerHTML = `<img src="${url}" style="max-width:150px;" />`;
   });
 
-  // Upload image helper
+  // ===============================
+  // IMAGE UPLOAD FUNCTION
+  // ===============================
   async function uploadImage(file) {
     const fd = new FormData();
     fd.append("file", file);
+
     const res = await fetch(UPLOAD_URL, { method: "POST", body: fd });
+
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || "Upload failed");
     }
+
     return res.json(); // { filename, url }
   }
 
-  // Create product
+  // ===============================
+  // CREATE PRODUCT
+  // ===============================
   uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     uploadStatus.textContent = "Processing...";
+
     try {
       const seller_id = parseInt(sellerIdInput.value || "1", 10);
+
       const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
       const price = parseFloat(document.getElementById("price").value || "0");
@@ -55,16 +67,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const product_url = document.getElementById("product_url").value;
       const context = document.getElementById("context").value;
 
-      // If user selected a file, upload it first
       const file = imageFileInput.files[0];
       if (!file) {
         uploadStatus.textContent = "Please select an image before submitting.";
         return;
       }
 
+      // Upload image
       const up = await uploadImage(file);
-      let filename = up.filename;
+      const filename = up.filename;
 
+      // Build payload
       const payload = {
         seller_id,
         title,
@@ -96,12 +109,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Load products
+  // ===============================
+  // LOAD PRODUCTS
+  // ===============================
   async function loadProductsForSeller(seller_id) {
     productsTableBody.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+
     try {
       const res = await fetch(`${LIST_URL}?seller_id=${seller_id}`);
       const rows = await res.json();
+
       if (!res.ok) throw new Error(rows.detail || "Failed to fetch");
 
       if (!rows.length) {
@@ -111,15 +128,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       productsTableBody.innerHTML = "";
-      for (const r of rows) {
-        const tr = document.createElement("tr");
 
+      for (const r of rows) {
         const imgTag = r.image
-          ? `<img src="/images/${r.image
-              .split("/")
-              .pop()}" style="max-width:80px;">`
+          ? `<img src="/images/${r.image}" style="max-width:80px;">`
           : "";
 
+        const resubmitBtn =
+          r.status === "rejected"
+            ? `<button class="resubmitBtn" data-id="${r.id}">Resubmit</button>`
+            : "";
+
+        const deleteBtn =
+          r.status === "approved"
+            ? "" // approved cannot be deleted by seller
+            : `<button class="deleteBtn" data-id="${r.id}">Delete</button>`;
+
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${r.id}</td>
           <td>${imgTag}</td>
@@ -128,49 +153,82 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${r.status || ""}</td>
           <td>
             <button class="editBtn" data-id="${r.id}">Edit</button>
-            <button class="deleteBtn" data-id="${r.id}">Delete</button>
+            ${resubmitBtn}
+            ${deleteBtn}
           </td>
         `;
+
         productsTableBody.appendChild(tr);
       }
 
-      // attach actions
-      document.querySelectorAll(".editBtn").forEach((b) => {
-        b.addEventListener("click", async (ev) => {
-          const id = ev.currentTarget.dataset.id;
-          openEditModal(id);
-        });
+      // Bind Edit buttons
+      document.querySelectorAll(".editBtn").forEach((btn) => {
+        btn.onclick = () => openEditModal(btn.dataset.id);
       });
 
-      document.querySelectorAll(".deleteBtn").forEach((b) => {
-        b.addEventListener("click", async (ev) => {
-          const id = ev.currentTarget.dataset.id;
-          if (!confirm("Delete this product? This cannot be undone.")) return;
+      // Bind Delete buttons
+      document.querySelectorAll(".deleteBtn").forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.dataset.id;
+          if (!confirm("Delete this product permanently?")) return;
           await deleteProduct(id);
-          loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
-        });
+          loadProductsForSeller(seller_id);
+        };
+      });
+
+      // Bind Resubmit buttons
+      document.querySelectorAll(".resubmitBtn").forEach((btn) => {
+        btn.onclick = async () => {
+          await resubmitProduct(btn.dataset.id);
+          loadProductsForSeller(seller_id);
+        };
       });
     } catch (err) {
       productsTableBody.innerHTML = `<tr><td colspan='6'>Error: ${err.message}</td></tr>`;
     }
   }
 
-  // Delete product
+  // ===============================
+  // RESUBMIT PRODUCT
+  // ===============================
+  async function resubmitProduct(id) {
+    const res = await fetch(`/seller/resubmit/${id}`, {
+      method: "POST",
+    });
+
+    const j = await res.json();
+
+    if (!res.ok) {
+      alert("Resubmit failed: " + (j.detail || JSON.stringify(j)));
+      return;
+    }
+
+    alert("Product resubmitted for approval");
+  }
+
+  // ===============================
+  // DELETE PRODUCT
+  // ===============================
   async function deleteProduct(id) {
     const res = await fetch(PRODUCT_URL(id), { method: "DELETE" });
     const j = await res.json();
+
     if (!res.ok) throw new Error(j.detail || JSON.stringify(j));
     return j;
   }
 
-  // Open edit modal
+  // ===============================
+  // OPEN EDIT MODAL
+  // ===============================
   async function openEditModal(id) {
     const res = await fetch(PRODUCT_URL(id));
     const j = await res.json();
+
     if (!res.ok) {
       alert("Failed to fetch product");
       return;
     }
+
     document.getElementById("edit_id").value = j.id;
     document.getElementById("edit_title").value = j.title || "";
     document.getElementById("edit_description").value = j.description || "";
@@ -179,15 +237,29 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit_categories").value = j.categories || "";
     document.getElementById("edit_product_url").value = j.product_url || "";
     document.getElementById("edit_context").value = j.context || "";
-    document.getElementById("edit_status").value = j.status || "pending";
+
+    // -------- FIXED PART --------
+    const statusSelect = document.getElementById("edit_status");
+    const allowed = [...statusSelect.options].map((o) => o.value);
+
+    if (!allowed.includes(j.status)) {
+      statusSelect.value = "pending";
+    } else {
+      statusSelect.value = j.status;
+    }
+    // ----------------------------
 
     editModal.classList.remove("hidden");
   }
 
-  // Handle edit form submit
+  // ===============================
+  // SAVE EDITED PRODUCT
+  // ===============================
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     const id = document.getElementById("edit_id").value;
+
     const payload = {
       title: document.getElementById("edit_title").value,
       description: document.getElementById("edit_description").value,
@@ -206,6 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const j = await res.json();
+
     if (!res.ok) {
       alert("Update failed: " + (j.detail || JSON.stringify(j)));
       return;
@@ -215,15 +288,19 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
   });
 
+  // ===============================
+  // CLOSE MODAL
+  // ===============================
   closeEdit.addEventListener("click", () => {
     editModal.classList.add("hidden");
   });
 
-  // initial load
+  // ===============================
+  // INITIAL LOAD
+  // ===============================
   refreshBtn.addEventListener("click", () => {
     loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
   });
 
-  // load products on start
   loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
 });

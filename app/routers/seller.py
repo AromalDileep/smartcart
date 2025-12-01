@@ -1,11 +1,10 @@
 # app/routers/seller.py
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Path, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Query
 import os
 import uuid
 from typing import List
 
-from app.schemas.product_schema import ProductCreate, ProductUpdate, ProductResponse
+from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.services import product_service
 
 router = APIRouter()
@@ -15,11 +14,10 @@ UPLOAD_DIR = "/project_data/all_images"
 
 
 # ------------------------------------------------------
-# Upload Image  (This remains unchanged)
+# Upload Image
 # ------------------------------------------------------
 @router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
-    # Validate file type
     if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
         raise HTTPException(status_code=400, detail="Only JPG/PNG images allowed.")
 
@@ -36,34 +34,23 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 # ------------------------------------------------------
-# Create Product   (BACKEND VALIDATION ADDED HERE)
+# Create Product  (VALIDATED)
 # ------------------------------------------------------
 @router.post("/create-product", response_model=dict)
 async def create_product_endpoint(product: ProductCreate):
-    """
-    Create a new product (seller-facing).
-    Returns: {"status": "success", "product_id": <id>}
-    """
-
-    # Validate seller ID
     if not product.seller_id:
         raise HTTPException(status_code=400, detail="seller_id is required")
 
-    # Validate image (IMPORTANT)
     if not product.image:
         raise HTTPException(status_code=400, detail="Image is required for product creation")
 
-    # Validate title
     if not product.title or product.title.strip() == "":
         raise HTTPException(status_code=400, detail="Title is required")
 
-    # Validate price (optional but good)
     if product.price is not None and product.price < 0:
         raise HTTPException(status_code=400, detail="Price cannot be negative")
 
-    # Everything OK → create product
     new_id = product_service.create_product(product, seller_id=product.seller_id)
-
     return {"status": "success", "product_id": new_id}
 
 
@@ -71,52 +58,68 @@ async def create_product_endpoint(product: ProductCreate):
 # List Products for Seller
 # ------------------------------------------------------
 @router.get("/products", response_model=List[dict])
-async def get_products_for_seller(seller_id: int = Query(..., description="Seller ID")):
-    rows = product_service.get_products_by_seller(seller_id)
-    return rows
+async def get_products_for_seller(seller_id: int = Query(...)):
+    return product_service.get_products_by_seller(seller_id)
 
 
 # ------------------------------------------------------
-# Get single product
+# Get Single Product  (FIXED: remove BYTEA embedding)
 # ------------------------------------------------------
 @router.get("/products/{product_id}", response_model=dict)
 async def get_product(product_id: int = Path(...)):
     row = product_service.get_product(product_id)
+
     if not row:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # 🔥 CRITICAL FIX — remove non-JSON-serializable fields
+    row.pop("embedding", None)
+
     return row
 
 
 # ------------------------------------------------------
-# Update Product
+# Update Product (Seller edits)
 # ------------------------------------------------------
 @router.patch("/products/{product_id}", response_model=dict)
 async def patch_product(product_id: int, payload: ProductUpdate):
-    success = product_service.update_product(product_id, payload)
-    if not success:
-        raise HTTPException(status_code=400, detail="No valid fields provided or update failed")
-    return {"status": "success", "product_id": product_id}
-
-
-# ------------------------------------------------------
-# Delete Product (Seller)
-# ------------------------------------------------------
-@router.delete("/products/{product_id}", response_model=dict)
-async def delete_product(product_id: int):
-    """
-    - If product has faiss_index: seller cannot delete; must request admin.
-    - Else delete DB row and delete image file.
-    """
     product = product_service.get_product(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # Determine faiss index
-    faiss_idx = (
-        product.get("faiss_index")
-        if isinstance(product, dict)
-        else None
-    )
+    current_status = product.get("status")
+
+    # If product is approved → move to pending on edit
+    if current_status == "approved":
+        payload.status = "pending"
+
+    success = product_service.update_product(product_id, payload)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="No valid fields provided or update failed")
+
+    return {
+        "status": payload.status or current_status,
+        "product_id": product_id,
+        "message": (
+            "Product updated and sent for re-approval"
+            if current_status == "approved"
+            else "Product updated"
+        )
+    }
+
+
+# ------------------------------------------------------
+# Seller DELETE Product
+# ------------------------------------------------------
+@router.delete("/products/{product_id}", response_model=dict)
+async def delete_product(product_id: int):
+    product = product_service.get_product(product_id)
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    faiss_idx = product.get("faiss_index") if isinstance(product, dict) else None
 
     if faiss_idx:
         raise HTTPException(
@@ -124,12 +127,11 @@ async def delete_product(product_id: int):
             detail="Product is indexed in FAISS. Contact admin for deletion."
         )
 
-    # Safe delete from DB
     success = product_service.delete_product(product_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete product")
 
-    # Delete image if exists
+    # Remove image
     image_name = product.get("image") if isinstance(product, dict) else None
     if image_name:
         image_path = os.path.join(UPLOAD_DIR, os.path.basename(image_name))
@@ -137,6 +139,28 @@ async def delete_product(product_id: int):
             if os.path.exists(image_path):
                 os.remove(image_path)
         except:
-            pass  # ignore file deletion failures
+            pass
 
     return {"status": "deleted", "product_id": product_id}
+
+
+# ------------------------------------------------------
+# Seller RESUBMIT rejected product
+# ------------------------------------------------------
+@router.post("/resubmit/{product_id}", response_model=dict)
+async def resubmit_product(product_id: int):
+    product = product_service.get_product(product_id)
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if product["status"] != "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail="Only rejected products can be resubmitted."
+        )
+
+    payload = ProductUpdate(status="pending")
+    product_service.update_product(product_id, payload)
+
+    return {"status": "pending", "product_id": product_id}
