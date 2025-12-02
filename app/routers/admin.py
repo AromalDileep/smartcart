@@ -6,53 +6,32 @@ import os
 import psycopg2
 import numpy as np
 
-from app.db.database import get_connection
-from app.services.embedding_service import CLIPEmbedder
-from app.faiss_manager import FaissManager
 from fastapi.responses import JSONResponse
+from app.db.database import get_connection
+from app.services.global_faiss import ensure_services, embedder, faiss_mgr
 
 router = APIRouter()
 
-# ---------------------------------------
-# ADMIN LOGIN (simple, no DB for now)
-# ---------------------------------------
 ADMIN_EMAIL = "admin@smartcart.com"
 ADMIN_PASSWORD = "admin1234"
-ADMIN_ID = 1  # fixed for now
-
-
-@router.post("/login")
-def admin_login(payload: dict):
-    email = payload.get("email")
-    password = payload.get("password")
-
-    if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
-        return {"admin_id": ADMIN_ID, "email": email, "status": "success"}
-
-    raise HTTPException(status_code=401, detail="Invalid admin credentials")
-
-
-# ---------------------------------------
-# Global services cached
-# ---------------------------------------
-embedder = None
-faiss_mgr = None
-
-
-def ensure_services():
-    global embedder, faiss_mgr
-    if embedder is None:
-        embedder = CLIPEmbedder()
-    if faiss_mgr is None:
-        faiss_mgr = FaissManager()
-
+ADMIN_ID = 1
 
 IMAGE_DIR = "/project_data/all_images"
 
 
-# ---------------------------------------
-# 1. List pending products
-# ---------------------------------------
+# -------------------------
+# LOGIN
+# -------------------------
+@router.post("/login")
+def admin_login(payload: dict):
+    if payload.get("email") == ADMIN_EMAIL and payload.get("password") == ADMIN_PASSWORD:
+        return {"admin_id": ADMIN_ID, "email": ADMIN_EMAIL, "status": "success"}
+    raise HTTPException(status_code=401, detail="Invalid admin credentials")
+
+
+# -------------------------
+# 1. Pending products
+# -------------------------
 @router.get("/pending-products", response_model=List[dict])
 def list_pending_products(offset: int = 0, limit: int = 20):
     conn = get_connection()
@@ -67,12 +46,12 @@ def list_pending_products(offset: int = 0, limit: int = 20):
     """, (limit, offset))
 
     rows = cur.fetchall()
+
     cur.close()
     conn.close()
 
-    items = []
-    for r in rows:
-        items.append({
+    return [
+        {
             "id": r[0],
             "title": r[1],
             "description": r[2],
@@ -81,67 +60,50 @@ def list_pending_products(offset: int = 0, limit: int = 20):
             "status": r[5],
             "created_at": str(r[6]),
             "seller_id": r[7]
-        })
+        }
+        for r in rows
+    ]
 
-    return items
 
-
-# ---------------------------------------
-# 2. Approve product (embed + FAISS)
-# ---------------------------------------
+# -------------------------
+# 2. Approve Product
+# -------------------------
 @router.post("/approve/{product_id}")
 def approve_product(product_id: int, admin_id: int = ADMIN_ID):
-    ensure_services()
+    embedder, faiss_mgr = ensure_services()
 
-    # fetch product
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute("SELECT id, image FROM products WHERE id = %s;", (product_id,))
     row = cur.fetchone()
 
     if not row:
-        cur.close()
-        conn.close()
         raise HTTPException(status_code=404, detail="Product not found")
 
     _, image_name = row
 
-    if not image_name:
-        cur.close()
-        conn.close()
-        raise HTTPException(status_code=400, detail="Product has no image")
-
     image_path = os.path.join(IMAGE_DIR, image_name)
-
     if not os.path.exists(image_path):
-        cur.close()
-        conn.close()
         raise HTTPException(status_code=400, detail=f"Image file missing: {image_name}")
 
-    # ----- CLIP embedding -----
-    vec = embedder.embed_image(image_path)  # numpy float32 normalized
-    embedding_bytes = psycopg2.Binary(vec.tobytes())
+    # embed
+    vec = embedder.embed_image(image_path)
+    emb_bytes = psycopg2.Binary(vec.tobytes())
 
-    # ----- FAISS insert -----
-    faiss_mgr.add_vector(vec, int(product_id))
+    # add to FAISS
+    faiss_mgr.add_vector(vec, product_id)
 
-    # update DB
     cur.execute("""
         UPDATE products
-        SET embedding = %s, faiss_index = %s, status = %s,
-            approved_by = %s, approved_at = %s
-        WHERE id = %s
-        RETURNING id;
-    """, (
-        embedding_bytes,
-        product_id,
-        "approved",
-        admin_id,
-        datetime.utcnow(),
-        product_id
-    ))
+        SET embedding = %s,
+            faiss_index = %s,
+            status = 'approved',
+            approved_by = %s,
+            approved_at = %s
+        WHERE id = %s;
+    """, (emb_bytes, product_id, admin_id, datetime.utcnow(), product_id))
 
-    _ = cur.fetchone()
     conn.commit()
     cur.close()
     conn.close()
@@ -149,9 +111,9 @@ def approve_product(product_id: int, admin_id: int = ADMIN_ID):
     return {"product_id": product_id, "status": "approved"}
 
 
-# ---------------------------------------
-# 3. Reject product
-# ---------------------------------------
+# -------------------------
+# 3. Reject Product
+# -------------------------
 @router.post("/reject/{product_id}")
 def reject_product(product_id: int, admin_id: int = ADMIN_ID):
     conn = get_connection()
@@ -162,24 +124,22 @@ def reject_product(product_id: int, admin_id: int = ADMIN_ID):
         SET status = 'rejected',
             approved_by = %s,
             approved_at = %s
-        WHERE id = %s
-        RETURNING id;
+        WHERE id = %s;
     """, (admin_id, datetime.utcnow(), product_id))
 
-    updated = cur.fetchone()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+
     conn.commit()
     cur.close()
     conn.close()
 
-    if not updated:
-        raise HTTPException(status_code=404, detail="Product not found")
-
     return {"product_id": product_id, "status": "rejected"}
 
 
-# ---------------------------------------
-# 4. List approved products
-# ---------------------------------------
+# -------------------------
+# 4. Approved Products
+# -------------------------
 @router.get("/approved-products", response_model=List[dict])
 def list_approved_products(offset: int = 0, limit: int = 50):
     conn = get_connection()
@@ -197,9 +157,8 @@ def list_approved_products(offset: int = 0, limit: int = 50):
     cur.close()
     conn.close()
 
-    results = []
-    for r in rows:
-        results.append({
+    return [
+        {
             "id": r[0],
             "title": r[1],
             "price": float(r[2]) if r[2] else None,
@@ -207,23 +166,22 @@ def list_approved_products(offset: int = 0, limit: int = 50):
             "faiss_index": r[4],
             "approved_at": str(r[5]),
             "seller_id": r[6]
-        })
+        }
+        for r in rows
+    ]
 
-    return results
 
-
-
-# ---------------------------------------
-# 5. Delete product (FAISS + DB + image)
-# ---------------------------------------
+# -------------------------
+# 5. Delete Product
+# -------------------------
 @router.delete("/delete/{product_id}")
 def delete_product_admin(product_id: int):
-    ensure_services()
+    embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT image, faiss_index FROM products WHERE id = %s", (product_id,))
+    cur.execute("SELECT image, faiss_index FROM products WHERE id = %s;", (product_id,))
     row = cur.fetchone()
 
     if not row:
@@ -231,18 +189,18 @@ def delete_product_admin(product_id: int):
 
     image_name, faiss_index = row
 
-    # remove vector
+    # remove from FAISS
     if faiss_index is not None:
-        faiss_mgr.remove_vector(int(faiss_index))
+        faiss_mgr.remove_vector(faiss_index)
 
-    # delete image file
+    # remove image
     if image_name:
         img_path = os.path.join(IMAGE_DIR, image_name)
         if os.path.exists(img_path):
             os.remove(img_path)
 
-    # delete DB row
-    cur.execute("DELETE FROM products WHERE id = %s", (product_id,))
+    # delete row
+    cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
     conn.commit()
 
     cur.close()
@@ -251,19 +209,20 @@ def delete_product_admin(product_id: int):
     return {"status": "deleted", "product_id": product_id}
 
 
-# ---------------------------------------
-# 6. Rebuild FAISS index
-# ---------------------------------------
+# -------------------------
+# 6. Rebuild FAISS
+# -------------------------
 @router.post("/rebuild-faiss")
 def rebuild_faiss_index():
-    ensure_services()
+    embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
     cur = conn.cursor()
+
     cur.execute("""
         SELECT faiss_index, embedding
         FROM products
-        WHERE status = 'approved' AND embedding IS NOT NULL;
+        WHERE status='approved' AND embedding IS NOT NULL;
     """)
 
     rows = cur.fetchall()
@@ -273,57 +232,51 @@ def rebuild_faiss_index():
     vectors = []
     ids = []
 
-    for row in rows:
-        faiss_id, emb_bytes = row
+    for faiss_id, emb_bytes in rows:
         if faiss_id and emb_bytes:
             vec = np.frombuffer(emb_bytes, dtype="float32")
             vectors.append(vec)
-            ids.append(int(faiss_id))
+            ids.append(faiss_id)
 
     faiss_mgr.rebuild(vectors, ids)
 
     return {"status": "faiss_rebuilt", "count": len(ids)}
 
 
-# ---------------------------------------
-# 7. Backup FAISS index
-# ---------------------------------------
+# -------------------------
+# 7. Backup FAISS
+# -------------------------
 @router.post("/backup-faiss")
 def backup_faiss():
-    ensure_services()
+    embedder, faiss_mgr = ensure_services()
 
-    backup_path = faiss_mgr.backup_index()
+    path = faiss_mgr.backup_index()
+    return {"status": "backup_done", "path": path}
 
-    return {"status": "backup_done", "path": backup_path}
-# ---------------------------------------
-# 8. FAISS + DB STATS (for dashboard)
-# ---------------------------------------
+
+# -------------------------
+# 8. FAISS Stats
+# -------------------------
 @router.get("/faiss-stats")
 def faiss_stats():
-    ensure_services()
+    embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
     cur = conn.cursor()
 
-    # total products in DB
     cur.execute("SELECT COUNT(*) FROM products;")
-    total_products = cur.fetchone()[0]
+    total = cur.fetchone()[0]
 
-    # total approved products
-    cur.execute("SELECT COUNT(*) FROM products WHERE status = 'approved';")
-    approved_products = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM products WHERE status='approved';")
+    approved = cur.fetchone()[0]
 
-    # FAISS vector count
-    try:
-        faiss_vectors = faiss_mgr.index.ntotal
-    except Exception:
-        faiss_vectors = 0
+    faiss_vectors = faiss_mgr.index.ntotal
 
     cur.close()
     conn.close()
 
-    return {
-        "total_products": total_products,
-        "approved_products": approved_products,
-        "faiss_vectors": faiss_vectors,
+    return { 
+        "total_products": total,
+        "approved_products": approved,
+        "faiss_vectors": faiss_vectors
     }
