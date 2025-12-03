@@ -59,5 +59,11 @@ class Settings:
     CORS_ORIGINS: list = os.environ["CORS_ORIGINS"].split(",")
     BASE_URL: str = os.environ["BASE_URL"]
 
+    # --------------------------
+    # Groq API
+    # --------------------------
+    GROQ_API_KEY: str = os.environ["GROQ_API_KEY"]
+    GROQ_API_URL: str = os.environ["GROQ_API_URL"]
+
 
 settings = Settings()
