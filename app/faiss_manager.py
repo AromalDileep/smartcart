@@ -2,12 +2,13 @@
 import os
 import faiss
 import numpy as np
+from app.core.config import settings
 import shutil
 from datetime import datetime
 
-INDEX_DIR = "/faiss_index"
+INDEX_DIR = settings.FAISS_INDEX_DIR
 INDEX_PATH = os.path.join(INDEX_DIR, "index.faiss")
-DIM = 512
+DIM = settings.FAISS_DIM
 
 
 class FaissManager:

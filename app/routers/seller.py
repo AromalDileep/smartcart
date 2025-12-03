@@ -7,10 +7,12 @@ from typing import List
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.services import product_service
 
+from app.core.config import settings
+
 router = APIRouter()
 
 # Directory inside your docker volume
-UPLOAD_DIR = "/project_data/all_images"
+UPLOAD_DIR = settings.IMAGE_DIR
 
 
 # ------------------------------------------------------
@@ -30,7 +32,11 @@ async def upload_image(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    return {"filename": unique_name, "url": f"/images/{unique_name}"}
+    # Return full URL or relative path depending on BASE_URL setting
+    # If BASE_URL is absolute, this returns absolute.
+    # We strip the trailing slash from BASE_URL if we want to be safe, but config has it.
+    # Assuming BASE_URL ends with /
+    return {"filename": unique_name, "url": f"{settings.BASE_URL}{unique_name}"}
 
 
 # ------------------------------------------------------

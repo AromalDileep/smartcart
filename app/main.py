@@ -22,12 +22,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
+from app.core.config import settings
+
 # ---------------------------------------------------------
 # CORS
 # ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,13 +40,13 @@ app.add_middleware(
 # ---------------------------------------------------------
 app.mount(
     "/images",
-    StaticFiles(directory="/project_data/all_images"),
+    StaticFiles(directory=settings.IMAGE_DIR),
     name="images"
 )
 
 app.mount(
     "/static",
-    StaticFiles(directory="app/static"),
+    StaticFiles(directory=settings.STATIC_DIR),
     name="static"
 )
 

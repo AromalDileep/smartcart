@@ -2,12 +2,14 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Form
 from typing import Optional
 from app.services.search_service import search_by_image, search_by_text, search_hybrid
 
+from app.core.config import settings
+
 router = APIRouter()
 
 @router.get("/text")
 def text_search(
     query: str = Query(..., description="Search text"),
-    k: int = Query(10, description="Number of results")
+    k: int = Query(settings.DEFAULT_TOP_K, description="Number of results")
 ):
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -17,7 +19,7 @@ def text_search(
 @router.post("/image")
 async def image_search(
     image: UploadFile = File(...),
-    k: int = 10
+    k: int = settings.DEFAULT_TOP_K
 ):
     img_bytes = await image.read()
     return search_by_image(img_bytes, top_k=k)
@@ -27,9 +29,9 @@ async def image_search(
 async def hybrid_search_endpoint(
     image: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
-    w_image: float = Form(0.5),
-    w_text: float = Form(0.5),
-    k: int = Query(10)
+    w_image: float = Form(settings.DEFAULT_WEIGHT_IMAGE),
+    w_text: float = Form(settings.DEFAULT_WEIGHT_TEXT),
+    k: int = Query(settings.DEFAULT_TOP_K)
 ):
     img_bytes = None
     if image:

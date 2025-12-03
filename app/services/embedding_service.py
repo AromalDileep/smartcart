@@ -4,8 +4,9 @@ from PIL import Image
 import numpy as np
 import torch
 from transformers import CLIPProcessor, CLIPModel
+from app.core.config import settings
 
-MODEL_PATH = "/project_data/clip-vit-base-patch32"  # mounted path inside container
+MODEL_PATH = settings.MODEL_PATH  # mounted path inside container
 
 class CLIPEmbedder:
     def __init__(self, device=None):

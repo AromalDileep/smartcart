@@ -5,14 +5,16 @@ import torch
 from PIL import Image
 from fastapi import HTTPException
 
+from app.core.config import settings
+
 # Use global FAISS + CLIP (shared across app)
 from app.services.global_faiss import ensure_services
 
 # Correct database import
 from app.db.database import get_connection
 
-IMAGE_DIR = "/project_data/all_images"
-BASE_URL = "http://localhost:8000/images/"
+IMAGE_DIR = settings.IMAGE_DIR
+BASE_URL = settings.BASE_URL
 
 
 # -------------------------------------------------------
@@ -21,7 +23,7 @@ BASE_URL = "http://localhost:8000/images/"
 def search_by_image(image_file_bytes, top_k=10):
     embedder, faiss_mgr = ensure_services()
 
-    temp_path = "/tmp/search_image.jpg"
+    temp_path = settings.TEMP_IMAGE_PATH
     with open(temp_path, "wb") as f:
         f.write(image_file_bytes)
 
@@ -43,7 +45,7 @@ def search_by_text(query: str, top_k=10):
         return_tensors="pt",
         padding=True,
         truncation=True,
-        max_length=77
+        max_length=settings.MAX_TEXT_LENGTH
     ).to(embedder.device)
 
     with torch.no_grad():
@@ -78,7 +80,7 @@ def search_hybrid(image_bytes, text_query, w_image=0.5, w_text=0.5, top_k=10):
 
     # Image embedding
     if image_bytes:
-        tmp = "/tmp/hybrid_img.jpg"
+        tmp = settings.TEMP_HYBRID_IMAGE_PATH
         with open(tmp, "wb") as f:
             f.write(image_bytes)
         img_vec = embedder.embed_image(tmp)
@@ -92,7 +94,7 @@ def search_hybrid(image_bytes, text_query, w_image=0.5, w_text=0.5, top_k=10):
             return_tensors="pt",
             padding=True,
             truncation=True,
-            max_length=77
+            max_length=settings.MAX_TEXT_LENGTH
         ).to(embedder.device)
 
         with torch.no_grad():

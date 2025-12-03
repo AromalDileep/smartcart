@@ -10,13 +10,15 @@ from fastapi.responses import JSONResponse
 from app.db.database import get_connection
 from app.services.global_faiss import ensure_services, embedder, faiss_mgr
 
+from app.core.config import settings
+
 router = APIRouter()
 
-ADMIN_EMAIL = "admin@smartcart.com"
-ADMIN_PASSWORD = "admin1234"
-ADMIN_ID = 1
+ADMIN_EMAIL = settings.ADMIN_EMAIL
+ADMIN_PASSWORD = settings.ADMIN_PASSWORD
+ADMIN_ID = settings.ADMIN_ID
 
-IMAGE_DIR = "/project_data/all_images"
+IMAGE_DIR = settings.IMAGE_DIR
 
 
 # -------------------------

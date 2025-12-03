@@ -1,24 +1,26 @@
 # app/db/database.py
 
-import os
 import time
 import psycopg2
+from app.core.config import settings
 
 def get_connection():
     """Connect to PostgreSQL with retry logic."""
-    retries = 10
+    retries = settings.DB_RETRIES
     for attempt in range(retries):
         try:
             conn = psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST", "db"),
-                database=os.getenv("POSTGRES_DB", "smartcartdb_v2"),
-                user=os.getenv("POSTGRES_USER", "postgres"),
-                password=os.getenv("POSTGRES_PASSWORD", "lottery1234")
+                host=settings.POSTGRES_HOST,
+                database=settings.POSTGRES_DB,
+                user=settings.POSTGRES_USER,
+                password=settings.POSTGRES_PASSWORD,
+                port=settings.POSTGRES_PORT
             )
             return conn
         except Exception as e:
-            print(f"[DB] Connection failed ({attempt+1}/10). Retrying...")
+            print(f"[DB] Connection failed ({attempt+1}/{retries}). Retrying...")
             print("Error:", e)
-            time.sleep(3)
+            time.sleep(settings.DB_RETRY_DELAY)
 
     raise Exception("Failed to connect to PostgreSQL after multiple attempts.")
+
