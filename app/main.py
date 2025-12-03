@@ -1,12 +1,18 @@
 # app/main.py
+import logging
+import numpy as np
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import logging
 
-# DB auto-init
 from app.db.models import create_products_table
+from app.db.database import get_connection
+from app.utils.db_sequence_fix import fix_product_id_sequence
+
+from app.services.global_faiss import ensure_services  # global embedder + faiss
+# --------------------------------------------------------------------
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -17,30 +23,25 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------
-# CORS (safe for development; tighten in production)
+# CORS
 # ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],       
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ---------------------------------------------------------
-# STATIC FILE MOUNTS (CSS/JS/HTML/Images)
+# STATIC FILES
 # ---------------------------------------------------------
-
-# Serve images from the Docker volume
-# Example: http://localhost:8000/images/myimage.jpg
 app.mount(
     "/images",
     StaticFiles(directory="/project_data/all_images"),
     name="images"
 )
 
-# Serve static HTML/JS/CSS from app/static/
-# Example: http://localhost:8000/static/seller/index.html
 app.mount(
     "/static",
     StaticFiles(directory="app/static"),
@@ -48,70 +49,107 @@ app.mount(
 )
 
 # ---------------------------------------------------------
-# Routers
+# ROUTERS
 # ---------------------------------------------------------
 def include_routers():
     try:
         from app.routers.search import router as search_router
         app.include_router(search_router, prefix="/search", tags=["search"])
-    except Exception as e:
-        logger.debug(f"Search router not available yet: {e}")
+    except:
+        pass
 
     try:
         from app.routers.products import router as products_router
         app.include_router(products_router, prefix="/products", tags=["products"])
-    except Exception as e:
-        logger.debug(f"Products router not available yet: {e}")
+    except:
+        pass
 
     try:
         from app.routers.admin import router as admin_router
         app.include_router(admin_router, prefix="/admin", tags=["admin"])
-    except Exception as e:
-        logger.debug(f"Admin router not available yet: {e}")
+    except:
+        pass
 
     try:
         from app.routers.seller import router as seller_router
         app.include_router(seller_router, prefix="/seller", tags=["seller"])
-    except Exception as e:
-        logger.debug(f"Seller router not available yet: {e}")
+    except:
+        pass
 
 include_routers()
 
 # ---------------------------------------------------------
-# Health Check
+# ROOT
 # ---------------------------------------------------------
-@app.get("/", summary="Root")
+@app.get("/")
 async def root():
     return {"message": "SmartCart API is running"}
 
 
 # ---------------------------------------------------------
-# Startup & Shutdown Actions
+# AUTO REBUILD FAISS
+# ---------------------------------------------------------
+def auto_rebuild_faiss():
+    embedder, faiss_mgr = ensure_services()
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT faiss_index, embedding
+        FROM products
+        WHERE status='approved' AND embedding IS NOT NULL;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        print("[FAISS] No embeddings found — skipping rebuild.")
+        return
+
+    print(f"[FAISS] Rebuilding FAISS index with {len(rows)} vectors...")
+
+    vectors = []
+    ids = []
+    for fid, emb_bytes in rows:
+        vec = np.frombuffer(emb_bytes, dtype="float32")
+        vectors.append(vec)
+        ids.append(int(fid))
+
+    faiss_mgr.rebuild(vectors, ids)
+    print("[FAISS] Rebuild complete!")
+
+
+# ---------------------------------------------------------
+# STARTUP EVENT
 # ---------------------------------------------------------
 @app.on_event("startup")
 async def on_startup():
     logger.info("SmartCart app starting up")
 
-    # Ensure DB table exists
+    # Ensure DB ready
     create_products_table()
-    logger.info("Products table ensured.")
+    logger.info("Products table ensured")
 
-    # Auto-fix sequence
-    from app.utils.db_sequence_fix import fix_product_id_sequence
+    # Sequence fix
     fix_product_id_sequence()
     logger.info("Product ID sequence synchronized.")
 
+    # Auto rebuild FAISS on every container start
+    auto_rebuild_faiss()
 
+
+# ---------------------------------------------------------
+# SHUTDOWN
+# ---------------------------------------------------------
 @app.on_event("shutdown")
 async def on_shutdown():
     logger.info("SmartCart API shutting down...")
 
-# ---------------------------------------------------------
-# Shortcuts
-# ---------------------------------------------------------
 
-# Quick UI redirect (optional)
+# ---------------------------------------------------------
+# UI SHORTCUT
+# ---------------------------------------------------------
 @app.get("/ui")
 def serve_ui():
-    """Serve customer UI from /static"""
     return FileResponse("app/static/customer/index.html")
