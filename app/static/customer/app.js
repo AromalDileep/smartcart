@@ -68,6 +68,22 @@ document
 /* ================================
    UNIFIED SEARCH LOGIC
 ================================ */
+/* ================================
+   SEARCH STATE MANAGEMENT
+================================ */
+let searchState = {
+  text: "",
+  image: null,
+  w_image: 0.5,
+  w_text: 0.5,
+  currentK: 8,
+  isLoading: false,
+  hasMore: true,
+};
+
+/* ================================
+   UNIFIED SEARCH LOGIC
+================================ */
 async function performSearch() {
   const text = document.getElementById("searchInput").value.trim();
 
@@ -77,57 +93,91 @@ async function performSearch() {
     return;
   }
 
-  // Show loading state
-  showLoading();
+  // Reset state
+  searchState = {
+    text: text,
+    image: selectedImageFile,
+    w_image: parseFloat(document.getElementById("weightSlider").value),
+    w_text: 1 - parseFloat(document.getElementById("weightSlider").value),
+    currentK: 8,
+    isLoading: false,
+    hasMore: true,
+  };
+
+  // Clear previous results
+  document.getElementById("results").innerHTML = "";
+
+  // Remove existing Load More button if any
+  const existingBtn = document.getElementById("loadMoreBtn");
+  if (existingBtn) existingBtn.remove();
+
+  await executeSearch();
+}
+
+async function loadMore() {
+  if (searchState.isLoading) return;
+  searchState.currentK += 20;
+  await executeSearch(true);
+}
+
+async function executeSearch(isLoadMore = false) {
+  if (searchState.isLoading) return;
+  searchState.isLoading = true;
+
+  if (!isLoadMore) {
+    showLoading();
+  } else {
+    const btn = document.getElementById("loadMoreBtn");
+    if (btn) {
+      btn.textContent = "Loading...";
+      btn.disabled = true;
+    }
+  }
 
   try {
-    // TEXT ONLY
-    if (text && !selectedImageFile) {
-      const res = await fetch(
-        `${API_BASE}/text?query=${encodeURIComponent(text)}&k=20`
-      );
-      const data = await res.json();
-      return renderResults(data);
-    }
+    let url = `${API_BASE}`;
+    let options = {};
 
-    // IMAGE ONLY
-    if (!text && selectedImageFile) {
+    // Construct URL and Body based on type
+    if (searchState.text && !searchState.image) {
+      // TEXT ONLY
+      url += `/text?query=${encodeURIComponent(searchState.text)}&k=${
+        searchState.currentK
+      }`;
+    } else if (!searchState.text && searchState.image) {
+      // IMAGE ONLY
       const formData = new FormData();
-      formData.append("image", selectedImageFile);
-
-      const res = await fetch(`${API_BASE}/image?k=20`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      return renderResults(data);
+      formData.append("image", searchState.image);
+      url += `/image?k=${searchState.currentK}`;
+      options = { method: "POST", body: formData };
+    } else {
+      // HYBRID
+      const formData = new FormData();
+      formData.append("image", searchState.image);
+      formData.append("text", searchState.text);
+      formData.append("w_image", searchState.w_image);
+      formData.append("w_text", searchState.w_text);
+      url += `/hybrid?k=${searchState.currentK}`;
+      options = { method: "POST", body: formData };
     }
 
-    // HYBRID (both)
-    const w_image = parseFloat(document.getElementById("weightSlider").value);
-    const w_text = 1 - w_image;
-
-    const formData = new FormData();
-    formData.append("image", selectedImageFile);
-    formData.append("text", text);
-    formData.append("w_image", w_image);
-    formData.append("w_text", w_text);
-
-    const res = await fetch(`${API_BASE}/hybrid?k=20`, {
-      method: "POST",
-      body: formData,
-    });
-
+    const res = await fetch(url, options);
     const data = await res.json();
-    return renderResults(data);
+
+    renderResults(data, isLoadMore);
   } catch (error) {
     console.error("Search error:", error);
-    showNotification(
-      "An error occurred during search. Please try again.",
-      "error"
-    );
-    document.getElementById("results").innerHTML = "";
+    showNotification("An error occurred. Please try again.", "error");
+    if (!isLoadMore) {
+      document.getElementById("results").innerHTML = "";
+    }
+  } finally {
+    searchState.isLoading = false;
+    const btn = document.getElementById("loadMoreBtn");
+    if (btn) {
+      btn.textContent = "Load More";
+      btn.disabled = false;
+    }
   }
 }
 
@@ -201,31 +251,53 @@ document.head.appendChild(style);
 /* ================================
    RENDER RESULTS
 ================================ */
-function renderResults(list) {
+function renderResults(list, isLoadMore) {
   const container = document.getElementById("results");
-  container.innerHTML = "";
+
+  if (!isLoadMore) {
+    container.innerHTML = "";
+  } else {
+    // If loading more, we need to filter out items already displayed
+    // But since we request top K, the new list includes old items.
+    // We should only append the new ones.
+    // However, simplest way is to clear and re-render all to ensure order.
+    // But to prevent jumpiness, we can try to append only new ones.
+    // Let's just re-render for correctness as FAISS results might shift slightly or we just want to be safe.
+    // Actually, re-rendering 28 items is fast.
+    container.innerHTML = "";
+  }
 
   if (!list || list.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: white;">
-        <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
-        <h3 style="font-size: 24px; margin-bottom: 8px;">No results found</h3>
-        <p style="font-size: 16px; opacity: 0.9;">Try adjusting your search terms or filters</p>
-      </div>
-    `;
+    if (!isLoadMore) {
+      container.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: white;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🔍</div>
+          <h3 style="font-size: 24px; margin-bottom: 8px;">No results found</h3>
+          <p style="font-size: 16px; opacity: 0.9;">Try adjusting your search terms or filters</p>
+        </div>
+      `;
+    }
     return;
   }
 
   list.forEach((item, index) => {
     const div = document.createElement("div");
     div.className = "product-card";
-    div.style.animationDelay = `${index * 0.05}s`;
+    // Only animate new items if we were smart about appending, but since we re-render, animate all?
+    // Maybe disable animation for load more to avoid flickering?
+    if (!isLoadMore) {
+      div.style.animationDelay = `${index * 0.05}s`;
+    }
 
     div.innerHTML = `
       <img src="${item.image_url}" alt="product image" loading="lazy">
       <div class="product-title">${escapeHtml(item.title)}</div>
       <div class="product-price">${item.price ?? "N/A"}</div>
-      <div class="product-desc">${escapeHtml(item.description ?? "")}</div>
+      <a href="${
+        item.product_url || "#"
+      }" target="_blank" class="product-link-btn">
+        Go to Product Page
+      </a>
       <button class="ask-btn" onclick="openChatModal(${item.id}, '${escapeHtml(
       item.title
     ).replace(/'/g, "\\'")}')">
@@ -235,6 +307,27 @@ function renderResults(list) {
 
     container.appendChild(div);
   });
+
+  // Manage Load More Button
+  // If we got fewer results than requested K, we probably reached the end.
+  // Or if list length < currentK (unlikely unless end of DB).
+  // Actually, we always request K. If list.length < K, we are at end.
+  let loadMoreBtn = document.getElementById("loadMoreBtn");
+  if (!loadMoreBtn) {
+    loadMoreBtn = document.createElement("button");
+    loadMoreBtn.id = "loadMoreBtn";
+    loadMoreBtn.textContent = "Load More";
+    loadMoreBtn.onclick = loadMore;
+    // Insert after results container
+    container.parentNode.insertBefore(loadMoreBtn, container.nextSibling);
+  }
+
+  // If we received fewer items than we asked for, hide button
+  if (list.length < searchState.currentK) {
+    loadMoreBtn.style.display = "none";
+  } else {
+    loadMoreBtn.style.display = "block";
+  }
 }
 
 /* ================================
@@ -265,7 +358,7 @@ function openChatModal(productId, title) {
   currentProductTitle = title;
 
   // Update title
-  chatProductTitle.textContent = `Ask about: ${title}`;
+  chatProductTitle.textContent = `Ask AI Assistant: `;
 
   // Clear chat history
   chatMessages.innerHTML = "";

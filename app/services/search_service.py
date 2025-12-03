@@ -1,8 +1,6 @@
 
-import os
 import numpy as np
 import torch
-from PIL import Image
 from fastapi import HTTPException
 
 from app.core.config import settings
@@ -131,7 +129,7 @@ def format_results(ids, scores):
             continue
 
         cur.execute("""
-            SELECT id, faiss_index, title, price, image, description
+            SELECT id, faiss_index, title, price, image, description, product_url
             FROM products
             WHERE faiss_index = %s;
         """, (int(fid),))
@@ -140,7 +138,7 @@ def format_results(ids, scores):
         if not row:
             continue
 
-        prod_id, faiss_index, title, price, image, description = row
+        prod_id, faiss_index, title, price, image, description, product_url = row
 
         results.append({
             "id": prod_id,
@@ -149,6 +147,7 @@ def format_results(ids, scores):
             "price": float(price) if price else None,
             "description": description,
             "image_url": BASE_URL + image if image else None,
+            "product_url": product_url,
             "distance": float(dist)
         })
 
