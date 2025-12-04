@@ -1,7 +1,7 @@
 # app/main.py
 import logging
-import numpy as np
 
+import numpy as np
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +10,6 @@ from fastapi.responses import FileResponse
 from app.db.models import create_products_table
 from app.db.database import get_connection
 from app.utils.db_sequence_fix import fix_product_id_sequence
-
 from app.services.global_faiss import ensure_services  # global embedder + faiss
 # --------------------------------------------------------------------
 
@@ -157,4 +156,7 @@ async def on_shutdown():
 # ---------------------------------------------------------
 @app.get("/ui")
 def serve_ui():
-    return FileResponse("app/static/customer/index.html")
+    import os
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_path, "static/customer/index.html")
+    return FileResponse(file_path)

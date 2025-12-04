@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import Optional
+
+from pydantic import BaseModel
 
 # -------------------------------------------------
 # BASE FIELDS (Common for Create/Update/Response)

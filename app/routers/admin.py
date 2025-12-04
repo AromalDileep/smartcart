@@ -1,16 +1,16 @@
 # app/routers/admin.py
-from fastapi import APIRouter, HTTPException
-from typing import List
-from datetime import datetime
 import os
-import psycopg2
-import numpy as np
+from datetime import datetime
+from typing import List
 
+import numpy as np
+import psycopg2
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from app.db.database import get_connection
-from app.services.global_faiss import ensure_services, embedder, faiss_mgr
 
 from app.core.config import settings
+from app.db.database import get_connection
+from app.services.global_faiss import ensure_services, embedder, faiss_mgr
 
 router = APIRouter()
 

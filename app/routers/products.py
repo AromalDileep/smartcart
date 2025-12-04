@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException
 from typing import List
+
+from fastapi import APIRouter, HTTPException
+
 from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.services.product_service import (
     create_product,
-    get_product,
+    delete_product,
     get_all_products,
+    get_product,
     update_product,
-    delete_product
 )
 
 router = APIRouter()

@@ -1,7 +1,8 @@
 # app/utils/db_sequence_fix.py
 
-import psycopg2
 import os
+
+import psycopg2
 
 def fix_product_id_sequence():
     try:

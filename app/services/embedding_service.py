@@ -1,9 +1,11 @@
 # app/services/embedding_service.py
 import os
-from PIL import Image
+
 import numpy as np
 import torch
-from transformers import CLIPProcessor, CLIPModel
+from PIL import Image
+from transformers import CLIPModel, CLIPProcessor
+
 from app.core.config import settings
 
 MODEL_PATH = settings.MODEL_PATH  # mounted path inside container

@@ -1,9 +1,11 @@
 # app/services/product_service.py
-from typing import Optional, List, Dict
-from app.schemas.product_schema import ProductCreate, ProductUpdate
-from app.db.database import get_connection
+from typing import Dict, List, Optional
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+from app.db.database import get_connection
+from app.schemas.product_schema import ProductCreate, ProductUpdate
 
 FAISS_INDEX_POS = None
 

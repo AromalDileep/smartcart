@@ -1,15 +1,15 @@
 # app/routers/seller.py
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Query
 import os
 import uuid
 from typing import List
 
-from app.schemas.product_schema import ProductCreate, ProductUpdate
-from app.services import product_service
+from fastapi import APIRouter, File, HTTPException, Path, Query, UploadFile
+from pydantic import BaseModel
 
 from app.core.config import settings
 from app.db.database import get_connection
-from pydantic import BaseModel
+from app.schemas.product_schema import ProductCreate, ProductUpdate
+from app.services import product_service
 
 router = APIRouter()
 

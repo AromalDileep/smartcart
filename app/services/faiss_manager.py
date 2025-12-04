@@ -1,10 +1,12 @@
 # app/faiss_manager.py
 import os
-import faiss
-import numpy as np
-from app.core.config import settings
 import shutil
 from datetime import datetime
+
+import faiss
+import numpy as np
+
+from app.core.config import settings
 
 INDEX_DIR = settings.FAISS_INDEX_DIR
 INDEX_PATH = os.path.join(INDEX_DIR, "index.faiss")

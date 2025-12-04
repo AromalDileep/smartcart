@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000/search";
+const API_BASE = "/search";
 
 let selectedImageFile = null;
 
