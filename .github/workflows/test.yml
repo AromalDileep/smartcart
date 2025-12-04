@@ -41,6 +41,8 @@ jobs:
           # Install torch CPU first to avoid downloading large GPU binaries
           pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
+          # Create missing static directory for tests
+          mkdir -p app/static/images
 
       - name: Run Tests
         env:
