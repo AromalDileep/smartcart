@@ -1,6 +1,6 @@
 # app/services/global_faiss.py
 
-from app.faiss_manager import FaissManager
+from app.services.faiss_manager import FaissManager
 from app.services.embedding_service import CLIPEmbedder
 
 # Global singletons
