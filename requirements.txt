@@ -10,3 +10,5 @@ numpy
 requests
 safetensors
 python-dotenv
+pytest
+httpx
