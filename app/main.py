@@ -130,8 +130,11 @@ async def on_startup():
     logger.info("SmartCart app starting up")
 
     # Ensure DB ready
+    # Ensure DB ready
     create_products_table()
-    logger.info("Products table ensured")
+    from app.db.models import create_sellers_table
+    create_sellers_table()
+    logger.info("Products and Sellers tables ensured")
 
     # Sequence fix
     fix_product_id_sequence()

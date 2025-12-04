@@ -2,17 +2,115 @@
 const UPLOAD_URL = "/seller/upload-image";
 const CREATE_URL = "/seller/create-product";
 const LIST_URL = "/seller/products";
+const REGISTER_URL = "/seller/register";
+const LOGIN_URL = "/seller/login";
 const PRODUCT_URL = (id) => `/seller/products/${id}`;
 
 document.addEventListener("DOMContentLoaded", () => {
-  const sellerIdInput = document.getElementById("sellerId");
-  const refreshBtn = document.getElementById("refreshBtn");
+  // -----------------------------------------------------
+  // AUTH LOGIC (Register/Login pages)
+  // -----------------------------------------------------
+  const regForm = document.getElementById("register-form");
+  if (regForm) {
+    const errorMsg = document.getElementById("error-msg");
 
+    regForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (errorMsg) errorMsg.style.display = "none";
+
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await fetch(REGISTER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Registration failed");
+
+        // Auto login or redirect to login
+        alert("Registration successful! Please login.");
+        window.location.href = "login.html";
+      } catch (err) {
+        if (errorMsg) {
+          errorMsg.textContent = err.message;
+          errorMsg.style.display = "block";
+        } else {
+          alert(err.message);
+        }
+      }
+    });
+  }
+
+  const loginForm = document.getElementById("login-form");
+  if (loginForm) {
+    const errorMsg = document.getElementById("error-msg");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (errorMsg) errorMsg.style.display = "none";
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const res = await fetch(LOGIN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Login failed");
+
+        // Save session
+        localStorage.setItem("seller_id", data.seller_id);
+        localStorage.setItem("seller_name", data.name);
+
+        window.location.href = "index.html";
+      } catch (err) {
+        if (errorMsg) {
+          errorMsg.textContent = err.message;
+          errorMsg.style.display = "block";
+        } else {
+          alert(err.message);
+        }
+      }
+    });
+  }
+  // Check Auth
+  const sellerId = localStorage.getItem("seller_id");
+  const sellerName = localStorage.getItem("seller_name");
+
+  // Only enforce auth if we are NOT on an auth page
+  if (!regForm && !loginForm) {
+    if (!sellerId) {
+      window.location.href = "login.html";
+      return;
+    }
+  }
+
+  // Update UI with seller info
+  const sellerInfoDiv = document.getElementById("seller-info");
+  if (sellerInfoDiv) {
+    sellerInfoDiv.innerHTML = `Logged in as: <strong>${sellerName}</strong> (ID: ${sellerId}) <button id="logoutBtn">Logout</button>`;
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("seller_id");
+      localStorage.removeItem("seller_name");
+      window.location.href = "login.html";
+    });
+  }
+
+  const refreshBtn = document.getElementById("refreshBtn");
   const uploadForm = document.getElementById("uploadForm");
   const imageFileInput = document.getElementById("imageFile");
   const imagePreview = document.getElementById("imagePreview");
   const uploadStatus = document.getElementById("uploadStatus");
-
   const productsTableBody = document.querySelector("#productsTable tbody");
 
   const editModal = document.getElementById("editModal");
@@ -57,8 +155,6 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadStatus.textContent = "Processing...";
 
     try {
-      const seller_id = parseInt(sellerIdInput.value || "1", 10);
-
       const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
       const price = parseFloat(document.getElementById("price").value || "0");
@@ -79,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Build payload
       const payload = {
-        seller_id,
+        seller_id: parseInt(sellerId), // Use logged in ID
         title,
         description,
         price,
@@ -102,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
       uploadStatus.textContent = `Product created: ${j.product_id}`;
       uploadForm.reset();
       imagePreview.innerHTML = "";
-      loadProductsForSeller(seller_id);
+      loadProductsForSeller(sellerId);
     } catch (err) {
       uploadStatus.textContent = `Error: ${err.message}`;
       console.error(err);
@@ -112,11 +208,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===============================
   // LOAD PRODUCTS
   // ===============================
-  async function loadProductsForSeller(seller_id) {
+  async function loadProductsForSeller(sid) {
     productsTableBody.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
 
     try {
-      const res = await fetch(`${LIST_URL}?seller_id=${seller_id}`);
+      const res = await fetch(`${LIST_URL}?seller_id=${sid}`);
       const rows = await res.json();
 
       if (!res.ok) throw new Error(rows.detail || "Failed to fetch");
@@ -172,7 +268,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const id = btn.dataset.id;
           if (!confirm("Delete this product permanently?")) return;
           await deleteProduct(id);
-          loadProductsForSeller(seller_id);
+          loadProductsForSeller(sid);
         };
       });
 
@@ -180,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".resubmitBtn").forEach((btn) => {
         btn.onclick = async () => {
           await resubmitProduct(btn.dataset.id);
-          loadProductsForSeller(seller_id);
+          loadProductsForSeller(sid);
         };
       });
     } catch (err) {
@@ -285,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     editModal.classList.add("hidden");
-    loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
+    loadProductsForSeller(sellerId);
   });
 
   // ===============================
@@ -299,8 +395,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // INITIAL LOAD
   // ===============================
   refreshBtn.addEventListener("click", () => {
-    loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
+    loadProductsForSeller(sellerId);
   });
 
-  loadProductsForSeller(parseInt(sellerIdInput.value || "1", 10));
+  loadProductsForSeller(sellerId);
 });

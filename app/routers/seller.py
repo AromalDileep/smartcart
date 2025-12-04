@@ -8,11 +8,82 @@ from app.schemas.product_schema import ProductCreate, ProductUpdate
 from app.services import product_service
 
 from app.core.config import settings
+from app.db.database import get_connection
+from pydantic import BaseModel
 
 router = APIRouter()
 
 # Directory inside your docker volume
 UPLOAD_DIR = settings.IMAGE_DIR
+
+
+# ------------------------------------------------------
+# Auth Schemas
+# ------------------------------------------------------
+class SellerRegister(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class SellerLogin(BaseModel):
+    email: str
+    password: str
+
+
+# ------------------------------------------------------
+# Register
+# ------------------------------------------------------
+@router.post("/register")
+def register_seller(payload: SellerRegister):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Check if email exists
+    cur.execute("SELECT id FROM sellers WHERE email = %s;", (payload.email,))
+    if cur.fetchone():
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Insert new seller
+    cur.execute("""
+        INSERT INTO sellers (email, password, name)
+        VALUES (%s, %s, %s)
+        RETURNING id;
+    """, (payload.email, payload.password, payload.name))
+    
+    new_id = cur.fetchone()[0]
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"status": "success", "seller_id": new_id, "name": payload.name}
+
+
+# ------------------------------------------------------
+# Login
+# ------------------------------------------------------
+@router.post("/login")
+def login_seller(payload: SellerLogin):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, name, password FROM sellers WHERE email = %s;", (payload.email,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not row:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    seller_id, name, stored_password = row
+
+    # Simple password check (In production use hashing!)
+    if payload.password != stored_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    return {"status": "success", "seller_id": seller_id, "name": name}
+
 
 
 # ------------------------------------------------------
