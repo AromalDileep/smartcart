@@ -10,6 +10,7 @@ __pycache__/
 *.npz
 *.idx
 *.index
+.ruff_cache/
 
 # VSCode settings
 .vscode/
