@@ -114,6 +114,67 @@ def approve_product(product_id: int, admin_id: int = ADMIN_ID):
 
 
 # -------------------------
+# 2.5. Approve ALL Products (Train All)
+# -------------------------
+@router.post("/approve-all")
+def approve_all_products(admin_id: int = ADMIN_ID):
+    embedder, faiss_mgr = ensure_services()
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Get all pending products
+    cur.execute("SELECT id, image FROM products WHERE status = 'pending';")
+    rows = cur.fetchall()
+
+    if not rows:
+        cur.close()
+        conn.close()
+        return {"count": 0, "status": "no_pending_products"}
+
+    processed_count = 0
+    
+    for row in rows:
+        product_id, image_name = row
+        
+        image_path = os.path.join(IMAGE_DIR, image_name)
+        if not os.path.exists(image_path):
+            # Skip if image missing, or maybe log it? For now just skip
+            continue
+
+        try:
+            # embed
+            vec = embedder.embed_image(image_path)
+            emb_bytes = psycopg2.Binary(vec.tobytes())
+
+            # add to FAISS
+            faiss_mgr.add_vector(vec, product_id)
+
+            # update DB
+            cur.execute("""
+                UPDATE products
+                SET embedding = %s,
+                    faiss_index = %s,
+                    status = 'approved',
+                    approved_by = %s,
+                    approved_at = %s
+                WHERE id = %s;
+            """, (emb_bytes, product_id, admin_id, datetime.utcnow(), product_id))
+            
+            processed_count += 1
+        except Exception as e:
+            print(f"Error processing product {product_id}: {e}")
+            # Continue with next product even if one fails
+            continue
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"count": processed_count, "status": "approved_all"}
+
+
+# -------------------------
 # 3. Reject Product
 # -------------------------
 @router.post("/reject/{product_id}")
@@ -235,10 +296,12 @@ def rebuild_faiss_index():
     ids = []
 
     for faiss_id, emb_bytes in rows:
-        if faiss_id and emb_bytes:
+        if faiss_id is not None and emb_bytes:
             vec = np.frombuffer(emb_bytes, dtype="float32")
             vectors.append(vec)
             ids.append(faiss_id)
+        else:
+            print(f"SKIPPING: faiss_id={faiss_id}, emb_bytes_len={len(emb_bytes) if emb_bytes else 0}")
 
     faiss_mgr.rebuild(vectors, ids)
 

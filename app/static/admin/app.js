@@ -105,7 +105,7 @@ async function loadPending(reset = false) {
         <td>${r.seller_id}</td>
         <td>${r.created_at}</td>
         <td>
-          <button class="btn-sm approveBtn" data-id="${r.id}">Approve</button>
+          <button class="btn-sm approveBtn" data-id="${r.id}">Train</button>
           <button class="btn-sm rejectBtn" data-id="${r.id}">Reject</button>
         </td>
       </tr>
@@ -133,6 +133,37 @@ async function approveProduct(id) {
   if (!res.ok) return alert("Error: " + j.detail);
   loadPending(true);
 }
+
+// ⭐ NEW: TRAIN ALL
+document.getElementById("trainAllBtn").onclick = async () => {
+  if (
+    !confirm(
+      "Are you sure you want to train all pending products? This might take a while."
+    )
+  )
+    return;
+
+  const btn = document.getElementById("trainAllBtn");
+  const originalText = btn.textContent;
+  btn.textContent = "Training...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/admin/approve-all", { method: "POST" });
+    const j = await res.json();
+
+    if (!res.ok) throw new Error(j.detail || "Failed to train all");
+
+    alert(`Successfully trained ${j.count} products!`);
+    loadPending(true);
+    loadFaissStats(); // Update stats immediately
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+};
 
 async function rejectProduct(id) {
   const res = await fetch(`/admin/reject/${id}`, { method: "POST" });

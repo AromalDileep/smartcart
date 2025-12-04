@@ -21,7 +21,22 @@
 
       <!-- Pending Panel -->
       <div class="panel" id="pendingPanel">
-        <h2>Pending Products</h2>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h2>Pending Products</h2>
+          <button
+            id="trainAllBtn"
+            class="btn-sm"
+            style="background-color: #4caf50; color: white"
+          >
+            Train All Pending
+          </button>
+        </div>
 
         <table id="pendingTable">
           <thead>
