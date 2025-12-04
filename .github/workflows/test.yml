@@ -38,6 +38,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          # Install torch CPU first to avoid downloading large GPU binaries
+          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
 
       - name: Run Tests
@@ -49,9 +51,27 @@ jobs:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: smartcart_test
           # Dummy values for other env vars
-          ADMIN_ID: 1
-          SECRET_KEY: test_secret
+          DB_RETRIES: 1
+          DB_RETRY_DELAY: 1
+          FAISS_INDEX_DIR: /tmp
+          FAISS_DIM: 512
+          IMAGE_DIR: /tmp
+          STATIC_DIR: /tmp
           MODEL_PATH: openai/clip-vit-base-patch32
+          TEMP_IMAGE_PATH: /tmp/search_image.jpg
+          TEMP_HYBRID_IMAGE_PATH: /tmp/hybrid_img.jpg
+          ADMIN_EMAIL: admin@test.com
+          ADMIN_PASSWORD: test
+          ADMIN_ID: 1
+          MAX_TEXT_LENGTH: 77
+          DEFAULT_TOP_K: 10
+          DEFAULT_WEIGHT_IMAGE: 0.5
+          DEFAULT_WEIGHT_TEXT: 0.5
+          API_PORT: 8000
+          CORS_ORIGINS: "*"
+          BASE_URL: http://localhost:8000/
+          SECRET_KEY: test_secret
           GROQ_API_KEY: dummy_key
+          GROQ_API_URL: https://api.groq.com/openai/v1/chat/completions
         run: |
           python -m pytest
