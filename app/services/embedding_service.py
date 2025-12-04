@@ -1,5 +1,5 @@
 # app/services/embedding_service.py
-import os
+
 
 import numpy as np
 import torch

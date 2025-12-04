@@ -7,74 +7,73 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from app.core.config import settings
 from app.db.models import create_products_table
 from app.db.database import get_connection
 from app.utils.db_sequence_fix import fix_product_id_sequence
 from app.services.global_faiss import ensure_services  # global embedder + faiss
+
 # --------------------------------------------------------------------
 
 logger = logging.getLogger("uvicorn.error")
 
+# ---------------------------------------------------------
+# 1. SETUP & CONFIG
+# ---------------------------------------------------------
+CORS_ORIGINS = settings.CORS_ORIGINS
+
 app = FastAPI(
     title="SmartCart Semantic Search",
     description="FastAPI backend for SmartCart (FAISS + CLIP)",
-    version="0.1.0",
+    version="1.0.0",
 )
 
-from app.core.config import settings
-
-# ---------------------------------------------------------
-# CORS
-# ---------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ---------------------------------------------------------
-# STATIC FILES
+# 2. STATIC FILES
 # ---------------------------------------------------------
-app.mount(
-    "/images",
-    StaticFiles(directory=settings.IMAGE_DIR),
-    name="images"
-)
+# Mount the static directory
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/images", StaticFiles(directory="app/static/images"), name="images")
 
-app.mount(
-    "/static",
-    StaticFiles(directory=settings.STATIC_DIR),
-    name="static"
-)
 
 # ---------------------------------------------------------
-# ROUTERS
+# 3. ROUTERS
 # ---------------------------------------------------------
 def include_routers():
+    # Search Router
     try:
         from app.routers.search import router as search_router
         app.include_router(search_router, prefix="/search", tags=["search"])
-    except:
+    except Exception:
         pass
 
+    # Products Router
     try:
         from app.routers.products import router as products_router
         app.include_router(products_router, prefix="/products", tags=["products"])
-    except:
+    except Exception:
         pass
 
+    # Admin Router
     try:
         from app.routers.admin import router as admin_router
         app.include_router(admin_router, prefix="/admin", tags=["admin"])
-    except:
+    except Exception:
         pass
 
+    # Seller Router
     try:
         from app.routers.seller import router as seller_router
         app.include_router(seller_router, prefix="/seller", tags=["seller"])
-    except:
+    except Exception:
         pass
 
 include_routers()
@@ -128,7 +127,6 @@ def auto_rebuild_faiss():
 async def on_startup():
     logger.info("SmartCart app starting up")
 
-    # Ensure DB ready
     # Ensure DB ready
     create_products_table()
     from app.db.models import create_sellers_table

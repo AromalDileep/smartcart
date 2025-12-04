@@ -6,11 +6,11 @@ from typing import List
 import numpy as np
 import psycopg2
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+
 
 from app.core.config import settings
 from app.db.database import get_connection
-from app.services.global_faiss import ensure_services, embedder, faiss_mgr
+from app.services.global_faiss import ensure_services
 
 router = APIRouter()
 
@@ -375,7 +375,7 @@ def permanent_delete_all_deleted_products():
             if os.path.exists(img_path):
                 try:
                     os.remove(img_path)
-                except:
+                except Exception:
                     pass
 
         # delete row

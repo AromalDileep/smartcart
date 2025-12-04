@@ -1,7 +1,6 @@
 # app/services/product_service.py
 from typing import Dict, List, Optional
 
-import psycopg2
 from psycopg2.extras import RealDictCursor
 
 from app.db.database import get_connection
