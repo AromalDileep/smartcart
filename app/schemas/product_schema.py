@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # -------------------------------------------------
 # BASE FIELDS (Common for Create/Update/Response)
@@ -43,5 +43,4 @@ class ProductResponse(ProductBase):
     status: str
     created_at: Optional[str] = None
 
-    class Config:
-        from_attributes = True   # pydantic v2 replacement for orm_mode
+    model_config = ConfigDict(from_attributes=True)

@@ -2,6 +2,7 @@
 import logging
 
 import numpy as np
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,10 +23,34 @@ logger = logging.getLogger("uvicorn.error")
 # ---------------------------------------------------------
 CORS_ORIGINS = settings.CORS_ORIGINS
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # STARTUP
+    logger.info("SmartCart app starting up")
+
+    # Ensure DB ready
+    create_products_table()
+    from app.db.models import create_sellers_table
+    create_sellers_table()
+    logger.info("Products and Sellers tables ensured")
+
+    # Sequence fix
+    fix_product_id_sequence()
+    logger.info("Product ID sequence synchronized.")
+
+    # Auto rebuild FAISS on every container start
+    auto_rebuild_faiss()
+    
+    yield
+    
+    # SHUTDOWN
+    logger.info("SmartCart API shutting down...")
+
 app = FastAPI(
     title="SmartCart Semantic Search",
     description="FastAPI backend for SmartCart (FAISS + CLIP)",
     version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -120,33 +145,7 @@ def auto_rebuild_faiss():
     print("[FAISS] Rebuild complete!")
 
 
-# ---------------------------------------------------------
-# STARTUP EVENT
-# ---------------------------------------------------------
-@app.on_event("startup")
-async def on_startup():
-    logger.info("SmartCart app starting up")
 
-    # Ensure DB ready
-    create_products_table()
-    from app.db.models import create_sellers_table
-    create_sellers_table()
-    logger.info("Products and Sellers tables ensured")
-
-    # Sequence fix
-    fix_product_id_sequence()
-    logger.info("Product ID sequence synchronized.")
-
-    # Auto rebuild FAISS on every container start
-    auto_rebuild_faiss()
-
-
-# ---------------------------------------------------------
-# SHUTDOWN
-# ---------------------------------------------------------
-@app.on_event("shutdown")
-async def on_shutdown():
-    logger.info("SmartCart API shutting down...")
 
 
 # ---------------------------------------------------------

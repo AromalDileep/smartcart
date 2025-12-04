@@ -10,3 +10,5 @@ faiss_index/
 *.log
 .env
 .venv/
+tests/
+pytest.ini
