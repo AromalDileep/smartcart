@@ -3,6 +3,7 @@
 import os
 import time
 import psycopg2
+from app.core.config import settings
 
 
 
@@ -12,10 +13,10 @@ def get_db_connection():
     for attempt in range(retries):
         try:
             conn = psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST", "db"),
-                database=os.getenv("POSTGRES_DB", "smartcartdb_v2"),
-                user=os.getenv("POSTGRES_USER", "postgres"),
-                password=os.getenv("POSTGRES_PASSWORD", "lottery1234")
+                host=settings.POSTGRES_HOST,
+                database=settings.POSTGRES_DB,
+                user=settings.POSTGRES_USER,
+                password=settings.POSTGRES_PASSWORD
             )
             return conn
         except Exception as e:

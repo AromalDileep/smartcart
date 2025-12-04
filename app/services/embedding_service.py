@@ -8,14 +8,14 @@ from transformers import CLIPModel, CLIPProcessor
 
 from app.core.config import settings
 
-MODEL_PATH = settings.MODEL_PATH  # mounted path inside container
+
 
 class CLIPEmbedder:
     def __init__(self, device=None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         # load model & processor from local folder
-        self.model = CLIPModel.from_pretrained(MODEL_PATH).to(self.device)
-        self.processor = CLIPProcessor.from_pretrained(MODEL_PATH)
+        self.model = CLIPModel.from_pretrained(settings.MODEL_PATH).to(self.device)
+        self.processor = CLIPProcessor.from_pretrained(settings.MODEL_PATH)
 
     def embed_image(self, image_path: str) -> np.ndarray:
         """

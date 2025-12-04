@@ -66,7 +66,11 @@ app.add_middleware(
 # ---------------------------------------------------------
 # Mount the static directory
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-app.mount("/images", StaticFiles(directory="app/static/images"), name="images")
+
+# Ensure IMAGE_DIR exists before mounting
+import os
+os.makedirs(settings.IMAGE_DIR, exist_ok=True)
+app.mount("/images", StaticFiles(directory=settings.IMAGE_DIR), name="images")
 
 
 # ---------------------------------------------------------

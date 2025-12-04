@@ -1,10 +1,8 @@
-from fastapi.testclient import TestClient
-from app.main import app
+
 import uuid
 
-client = TestClient(app)
 
-def test_seller_register_and_login():
+def test_seller_register_and_login(client):
     # Generate a unique email for this test run
     random_email = f"test_seller_{uuid.uuid4()}@example.com"
     password = "testpassword"
@@ -35,7 +33,7 @@ def test_seller_register_and_login():
     assert data["seller_id"] == seller_id
     # assert data["email"] == random_email  # Email is not returned by login endpoint
 
-def test_seller_login_invalid():
+def test_seller_login_invalid(client):
     payload = {
         "email": "invalid@example.com",
         "password": "wrong"

@@ -29,3 +29,32 @@ def patch_model_path():
     yield
     
     settings.MODEL_PATH = original_path
+
+@pytest.fixture(scope="session")
+def client():
+    from app.main import app
+    from fastapi.testclient import TestClient
+    
+    # Use TestClient as a context manager to trigger lifespan events (startup/shutdown)
+    with TestClient(app) as c:
+        yield c
+
+@pytest.fixture(scope="session", autouse=True)
+def patch_paths(tmp_path_factory):
+    """
+    Force FAISS_INDEX_DIR and IMAGE_DIR to temp paths.
+    """
+    original_faiss = settings.FAISS_INDEX_DIR
+    original_images = settings.IMAGE_DIR
+    
+    # Create temp dirs
+    temp_faiss = tmp_path_factory.mktemp("faiss_index")
+    temp_images = tmp_path_factory.mktemp("images")
+    
+    settings.FAISS_INDEX_DIR = str(temp_faiss)
+    settings.IMAGE_DIR = str(temp_images)
+    
+    yield
+    
+    settings.FAISS_INDEX_DIR = original_faiss
+    settings.IMAGE_DIR = original_images

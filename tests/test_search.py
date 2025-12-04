@@ -1,10 +1,8 @@
 from unittest.mock import patch
-from fastapi.testclient import TestClient
-from app.main import app
 
-client = TestClient(app)
 
-def test_search_text():
+
+def test_search_text(client):
     # Mock the search service to avoid loading the model
     with patch("app.routers.search.search_by_text") as mock_search:
         mock_search.return_value = {

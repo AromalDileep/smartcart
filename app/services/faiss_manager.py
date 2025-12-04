@@ -8,33 +8,35 @@ import numpy as np
 
 from app.core.config import settings
 
-INDEX_DIR = settings.FAISS_INDEX_DIR
-INDEX_PATH = os.path.join(INDEX_DIR, "index.faiss")
-DIM = settings.FAISS_DIM
+
 
 
 class FaissManager:
     def __init__(self):
-        os.makedirs(INDEX_DIR, exist_ok=True)
+        self.index_dir = settings.FAISS_INDEX_DIR
+        self.index_path = os.path.join(self.index_dir, "index.faiss")
+        self.dim = settings.FAISS_DIM
+        
+        os.makedirs(self.index_dir, exist_ok=True)
         self.index = None
         self._load_or_create()
 
     # -----------------------------------------------
     def _load_or_create(self):
         """Load existing FAISS index or create a new one."""
-        if os.path.exists(INDEX_PATH):
+        if os.path.exists(self.index_path):
             try:
-                idx = faiss.read_index(INDEX_PATH)
+                idx = faiss.read_index(self.index_path)
                 self.index = faiss.IndexIDMap2(idx)
             except Exception:
-                self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(DIM))
+                self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(self.dim))
         else:
-            self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(DIM))
+            self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(self.dim))
 
     # -----------------------------------------------
     def save(self):
         """Save FAISS index to disk."""
-        faiss.write_index(self.index, INDEX_PATH)
+        faiss.write_index(self.index, self.index_path)
 
     # -----------------------------------------------
     def add_vector(self, vector: np.ndarray, id_: int):
@@ -69,7 +71,7 @@ class FaissManager:
     # -----------------------------------------------
     def rebuild(self, vectors, ids):
         """Fully rebuild FAISS from scratch"""
-        self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(DIM))
+        self.index = faiss.IndexIDMap2(faiss.IndexFlatIP(self.dim))
 
         if vectors and ids:
             vectors_np = np.asarray(vectors, dtype="float32").reshape(len(vectors), -1)
@@ -81,11 +83,11 @@ class FaissManager:
     # -----------------------------------------------
     def backup_index(self):
         """Backup index file"""
-        if not os.path.exists(INDEX_PATH):
+        if not os.path.exists(self.index_path):
             return None
 
         backup_name = f"index_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.faiss"
-        backup_path = os.path.join(INDEX_DIR, backup_name)
+        backup_path = os.path.join(self.index_dir, backup_name)
 
-        shutil.copy2(INDEX_PATH, backup_path)
+        shutil.copy2(self.index_path, backup_path)
         return backup_path
