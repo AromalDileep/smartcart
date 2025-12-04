@@ -71,6 +71,8 @@ function activateTab(name) {
 
   if (name === "pending") loadPending(true);
   if (name === "approved") loadApproved(true);
+  if (name === "deleted") loadDeleted(true);
+  if (name === "orphans") loadOrphans();
 
   // ⭐ Load FAISS stats only when Tools tab is opened
   if (name === "tools") loadFaissStats();
@@ -105,7 +107,7 @@ async function loadPending(reset = false) {
         <td>${r.seller_id}</td>
         <td>${r.created_at}</td>
         <td>
-          <button class="btn-sm approveBtn" data-id="${r.id}">Train</button>
+          <button class="btn-sm approveBtn" data-id="${r.id}" style="background-color: #4caf50; color: white;">Train</button>
           <button class="btn-sm rejectBtn" data-id="${r.id}">Reject</button>
         </td>
       </tr>
@@ -224,6 +226,178 @@ async function deleteProduct(id) {
 
   loadApproved(true);
 }
+
+// ----------------------------------------
+// DELETED PRODUCTS (WITH PAGINATION)
+// ----------------------------------------
+let deletedOffset = 0;
+const deletedLimit = 20;
+
+async function loadDeleted(reset = false) {
+  const tb = document.querySelector("#deletedTable tbody");
+
+  if (reset) {
+    deletedOffset = 0;
+    tb.innerHTML = "";
+  }
+
+  const res = await fetch(
+    `/admin/deleted-products?offset=${deletedOffset}&limit=${deletedLimit}`
+  );
+  const rows = await res.json();
+
+  for (const r of rows) {
+    tb.innerHTML += `
+      <tr>
+        <td>${r.id}</td>
+        <td><img src="/images/${r.image}" /></td>
+        <td>${r.title}</td>
+        <td>${r.seller_id}</td>
+        <td>${r.created_at}</td>
+        <td>
+          <button class="btn-sm permDeleteBtn" data-id="${r.id}" style="background-color: #f44336; color: white;">Permanently Delete</button>
+        </td>
+      </tr>
+    `;
+  }
+
+  document.querySelectorAll(".permDeleteBtn").forEach((btn) => {
+    btn.onclick = () => permanentDeleteProduct(btn.dataset.id);
+  });
+
+  deletedOffset += rows.length;
+
+  const loadMoreBtn = document.getElementById("deletedLoadMore");
+  loadMoreBtn.style.display = rows.length < deletedLimit ? "none" : "block";
+}
+
+document.getElementById("deletedLoadMore").onclick = () => loadDeleted(false);
+
+async function permanentDeleteProduct(id) {
+  if (
+    !confirm(
+      "Are you sure you want to PERMANENTLY delete this product? This cannot be undone."
+    )
+  )
+    return;
+
+  const res = await fetch(`/admin/permanent-delete/${id}`, {
+    method: "DELETE",
+  });
+  const j = await res.json();
+  if (!res.ok) return alert("Error: " + j.detail);
+
+  loadDeleted(true);
+}
+
+document.getElementById("deleteAllDeletedBtn").onclick = async () => {
+  if (
+    !confirm(
+      "Are you sure you want to PERMANENTLY delete ALL deleted products? This cannot be undone."
+    )
+  )
+    return;
+
+  const btn = document.getElementById("deleteAllDeletedBtn");
+  btn.textContent = "Deleting...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/admin/permanent-delete-all", {
+      method: "DELETE",
+    });
+    const j = await res.json();
+
+    if (!res.ok) throw new Error(j.detail || "Failed to delete all");
+
+    alert(`Permanently deleted ${j.count} products.`);
+    loadDeleted(true);
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.textContent = "Delete All";
+    btn.disabled = false;
+  }
+};
+
+// ----------------------------------------
+// ORPHAN IMAGES
+// ----------------------------------------
+async function loadOrphans() {
+  const tb = document.querySelector("#orphansTable tbody");
+  tb.innerHTML = "<tr><td colspan='3'>Loading...</td></tr>";
+
+  try {
+    const res = await fetch("/admin/orphan-images");
+    const files = await res.json();
+
+    if (!res.ok) throw new Error(files.detail || "Failed to load orphans");
+
+    if (!files.length) {
+      tb.innerHTML = "<tr><td colspan='3'>No orphan images found.</td></tr>";
+      return;
+    }
+
+    tb.innerHTML = "";
+    for (const f of files) {
+      tb.innerHTML += `
+        <tr>
+          <td><img src="/images/${f}" style="max-width: 80px;" /></td>
+          <td>${f}</td>
+          <td>
+            <button class="btn-sm deleteOrphanBtn" data-name="${f}" style="background-color: #f44336; color: white;">Delete</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    document.querySelectorAll(".deleteOrphanBtn").forEach((btn) => {
+      btn.onclick = () => deleteOrphan(btn.dataset.name);
+    });
+  } catch (err) {
+    tb.innerHTML = `<tr><td colspan='3'>Error: ${err.message}</td></tr>`;
+  }
+}
+
+async function deleteOrphan(filename) {
+  if (!confirm(`Delete ${filename} permanently?`)) return;
+
+  const res = await fetch(`/admin/orphan-images/${filename}`, {
+    method: "DELETE",
+  });
+  const j = await res.json();
+
+  if (!res.ok) return alert("Error: " + j.detail);
+  loadOrphans();
+}
+
+document.getElementById("cleanAllOrphansBtn").onclick = async () => {
+  if (
+    !confirm(
+      "Are you sure you want to delete ALL orphan images? This cannot be undone."
+    )
+  )
+    return;
+
+  const btn = document.getElementById("cleanAllOrphansBtn");
+  btn.textContent = "Cleaning...";
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/admin/orphan-images-all", { method: "DELETE" });
+    const j = await res.json();
+
+    if (!res.ok) throw new Error(j.detail || "Failed to clean");
+
+    alert(`Cleaned ${j.deleted_count} images.`);
+    loadOrphans();
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.textContent = "Clean All Unused Images";
+    btn.disabled = false;
+  }
+};
 
 // ----------------------------------------
 // ⭐ NEW: FAISS STATS FETCHER

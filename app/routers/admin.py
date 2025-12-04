@@ -273,6 +273,123 @@ def delete_product_admin(product_id: int):
 
 
 # -------------------------
+# 5.5. List Deleted Products
+# -------------------------
+@router.get("/deleted-products", response_model=List[dict])
+def list_deleted_products(offset: int = 0, limit: int = 20):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, title, description, price, image, status, created_at, seller_id
+        FROM products
+        WHERE status = 'deleted'
+        ORDER BY created_at DESC
+        LIMIT %s OFFSET %s;
+    """, (limit, offset))
+
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    return [
+        {
+            "id": r[0],
+            "title": r[1],
+            "description": r[2],
+            "price": float(r[3]) if r[3] else None,
+            "image": r[4],
+            "status": r[5],
+            "created_at": str(r[6]),
+            "seller_id": r[7]
+        }
+        for r in rows
+    ]
+
+
+# -------------------------
+# 5.6. Permanently Delete Product
+# -------------------------
+@router.delete("/permanent-delete/{product_id}")
+def permanent_delete_product(product_id: int):
+    embedder, faiss_mgr = ensure_services()
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT image, faiss_index FROM products WHERE id = %s;", (product_id,))
+    row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    image_name, faiss_index = row
+
+    # remove from FAISS
+    if faiss_index is not None:
+        faiss_mgr.remove_vector(faiss_index)
+
+    # remove image
+    if image_name:
+        img_path = os.path.join(IMAGE_DIR, image_name)
+        if os.path.exists(img_path):
+            os.remove(img_path)
+
+    # delete row
+    cur.execute("DELETE FROM products WHERE id = %s;", (product_id,))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"status": "permanently_deleted", "product_id": product_id}
+
+
+@router.delete("/permanent-delete-all")
+def permanent_delete_all_deleted_products():
+    embedder, faiss_mgr = ensure_services()
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # 1. Get all deleted products
+    cur.execute("SELECT id, image, faiss_index FROM products WHERE status = 'deleted';")
+    rows = cur.fetchall()
+
+    if not rows:
+        cur.close()
+        conn.close()
+        return {"status": "no_deleted_products", "count": 0}
+
+    count = 0
+    for row in rows:
+        pid, image_name, faiss_index = row
+
+        # remove from FAISS
+        if faiss_index is not None:
+            faiss_mgr.remove_vector(faiss_index)
+
+        # remove image
+        if image_name:
+            img_path = os.path.join(IMAGE_DIR, image_name)
+            if os.path.exists(img_path):
+                try:
+                    os.remove(img_path)
+                except:
+                    pass
+
+        # delete row
+        cur.execute("DELETE FROM products WHERE id = %s;", (pid,))
+        count += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return {"status": "all_permanently_deleted", "count": count}
+
+
+# -------------------------
 # 6. Rebuild FAISS
 # -------------------------
 @router.post("/rebuild-faiss")
@@ -345,3 +462,76 @@ def faiss_stats():
         "approved_products": approved,
         "faiss_vectors": faiss_vectors
     }
+
+
+# -------------------------
+# 9. Orphan Images
+# -------------------------
+@router.get("/orphan-images", response_model=List[str])
+def list_orphan_images():
+    # 1. Get all files in IMAGE_DIR
+    try:
+        all_files = set(os.listdir(IMAGE_DIR))
+    except FileNotFoundError:
+        return []
+
+    # 2. Get all used images from DB
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT image FROM products WHERE image IS NOT NULL;")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    used_images = set(r[0] for r in rows)
+
+    # 3. Find orphans
+    orphans = list(all_files - used_images)
+    return sorted(orphans)
+
+
+@router.delete("/orphan-images/{filename}")
+def delete_orphan_image(filename: str):
+    # Security check: prevent directory traversal
+    if ".." in filename or "/" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    file_path = os.path.join(IMAGE_DIR, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Double check it's not in DB (race condition safety)
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM products WHERE image = %s;", (filename,))
+    exists = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if exists:
+        raise HTTPException(status_code=400, detail="Image is currently in use")
+
+    try:
+        os.remove(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {e}")
+
+    return {"status": "deleted", "filename": filename}
+
+
+@router.delete("/orphan-images-all")
+def delete_all_orphan_images():
+    orphans = list_orphan_images()
+    count = 0
+    errors = []
+
+    for filename in orphans:
+        file_path = os.path.join(IMAGE_DIR, filename)
+        try:
+            os.remove(file_path)
+            count += 1
+        except Exception as e:
+            errors.append(f"{filename}: {e}")
+
+    return {"status": "cleaned", "deleted_count": count, "errors": errors}

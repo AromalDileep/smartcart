@@ -13,6 +13,8 @@
       <div class="tabs">
         <div class="tab active" data-tab="pending">Pending Products</div>
         <div class="tab" data-tab="approved">Approved Products</div>
+        <div class="tab" data-tab="deleted">Deleted Products</div>
+        <div class="tab" data-tab="orphans">Orphan Images</div>
         <div class="tab" data-tab="tools">Tools</div>
         <div style="margin-left: auto">
           <button id="logoutBtn">Logout</button>
@@ -88,6 +90,84 @@
         >
           Load More
         </button>
+      </div>
+
+      <!-- Deleted Panel -->
+      <div class="panel" id="deletedPanel" style="display: none">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h2>Deleted Products</h2>
+          <button
+            id="deleteAllDeletedBtn"
+            class="btn-sm"
+            style="background-color: #f44336; color: white"
+          >
+            Delete All
+          </button>
+        </div>
+
+        <table id="deletedTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Image</th>
+              <th>Title</th>
+              <th>Seller</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <!-- Load More button (Deleted) -->
+        <button
+          id="deletedLoadMore"
+          class="btn-sm"
+          style="margin-top: 12px; display: none"
+        >
+          Load More
+        </button>
+      </div>
+
+      <!-- Orphan Images Panel -->
+      <div class="panel" id="orphansPanel" style="display: none">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h2>Orphan Images</h2>
+          <button
+            id="cleanAllOrphansBtn"
+            class="btn-sm"
+            style="background-color: #f44336; color: white"
+          >
+            Clean All Unused Images
+          </button>
+        </div>
+
+        <p>
+          These images exist in the folder but are not linked to any product.
+        </p>
+
+        <table id="orphansTable">
+          <thead>
+            <tr>
+              <th>Image</th>
+              <th>Filename</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
 
       <!-- Tools Panel -->

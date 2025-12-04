@@ -196,27 +196,12 @@ async def delete_product(product_id: int):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    faiss_idx = product.get("faiss_index") if isinstance(product, dict) else None
+    # Soft delete: update status to 'deleted'
+    payload = ProductUpdate(status="deleted")
+    success = product_service.update_product(product_id, payload)
 
-    if faiss_idx:
-        raise HTTPException(
-            status_code=400,
-            detail="Product is indexed in FAISS. Contact admin for deletion."
-        )
-
-    success = product_service.delete_product(product_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete product")
-
-    # Remove image
-    image_name = product.get("image") if isinstance(product, dict) else None
-    if image_name:
-        image_path = os.path.join(UPLOAD_DIR, os.path.basename(image_name))
-        try:
-            if os.path.exists(image_path):
-                os.remove(image_path)
-        except:
-            pass
 
     return {"status": "deleted", "product_id": product_id}
 

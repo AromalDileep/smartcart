@@ -226,6 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
       productsTableBody.innerHTML = "";
 
       for (const r of rows) {
+        if (r.status === "deleted") continue;
+
         const imgTag = r.image
           ? `<img src="/images/${r.image}" style="max-width:80px;">`
           : "";
@@ -235,10 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ? `<button class="resubmitBtn" data-id="${r.id}">Resubmit</button>`
             : "";
 
-        const deleteBtn =
-          r.status === "approved"
-            ? "" // approved cannot be deleted by seller
-            : `<button class="deleteBtn" data-id="${r.id}">Delete</button>`;
+        const deleteBtn = `<button class="deleteBtn" data-id="${r.id}">Delete</button>`;
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
