@@ -30,6 +30,8 @@ def download_from_s3(image_name: str) -> str:
     Downloads an image from S3 and returns a temp file path.
     """
 
+    s3_key = f"all_images/{image_name}"       # <-- FIXED HERE
+
     s3 = boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -40,7 +42,7 @@ def download_from_s3(image_name: str) -> str:
     try:
         suffix = os.path.splitext(image_name)[1]
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        s3.download_fileobj(settings.S3_BUCKET_NAME, image_name, tmp)
+        s3.download_fileobj(settings.S3_BUCKET_NAME, s3_key, tmp)
         tmp.flush()
         tmp.close()
         return tmp.name
@@ -53,14 +55,17 @@ def download_from_s3(image_name: str) -> str:
 
 # Utility: Delete object from S3
 def delete_from_s3(image_name: str):
+    s3_key = f"all_images/{image_name}"       # <-- FIXED HERE
+
     s3 = boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region_name=settings.AWS_REGION,
     )
+
     try:
-        s3.delete_object(Bucket=settings.S3_BUCKET_NAME, Key=image_name)
+        s3.delete_object(Bucket=settings.S3_BUCKET_NAME, Key=s3_key)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -189,7 +194,8 @@ def approve_all_products(admin_id: int = ADMIN_ID):
     processed = 0
 
     for product_id, image_name in rows:
-        # Get path
+
+        # Get correct image path
         if settings.USE_CLOUD:
             image_path = download_from_s3(image_name)
         else:
@@ -537,7 +543,7 @@ def list_orphan_images():
             for obj in page.get("Contents", []):
                 key = obj["Key"]
                 if not key.endswith("/"):
-                    files.append(key)
+                    files.append(key.replace("all_images/", ""))  # FIX: remove prefix
 
         all_files = set(files)
 
@@ -607,4 +613,3 @@ def delete_all_orphan_images():
             errors.append(f"{filename}: {e}")
 
     return {"status": "cleaned", "deleted_count": count, "errors": errors}
-
