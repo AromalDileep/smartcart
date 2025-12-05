@@ -40,20 +40,18 @@ def register_seller(payload: SellerRegister):
     conn = get_connection()
     cur = conn.cursor()
 
-    # Check if email exists
     cur.execute("SELECT id FROM sellers WHERE email = %s;", (payload.email,))
     if cur.fetchone():
         cur.close()
         conn.close()
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Insert new seller
     cur.execute("""
         INSERT INTO sellers (email, password, name)
         VALUES (%s, %s, %s)
         RETURNING id;
     """, (payload.email, payload.password, payload.name))
-    
+
     new_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
@@ -80,7 +78,6 @@ def login_seller(payload: SellerLogin):
 
     seller_id, name, stored_password = row
 
-    # Simple password check (In production use hashing!)
     if payload.password != stored_password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -89,7 +86,7 @@ def login_seller(payload: SellerLogin):
 
 
 # ------------------------------------------------------
-# Upload Image
+# Upload Image (FIXED FOR S3 /all_images/)
 # ------------------------------------------------------
 @router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
@@ -105,7 +102,9 @@ async def upload_image(file: UploadFile = File(...)):
     if settings.USE_CLOUD:
         try:
             if not settings.S3_BUCKET_NAME:
-                 raise HTTPException(status_code=500, detail="S3_BUCKET_NAME not configured.")
+                raise HTTPException(status_code=500, detail="S3_BUCKET_NAME not configured.")
+
+            s3_key = f"all_images/{unique_name}"  # <--- FIXED HERE
 
             s3_client = boto3.client(
                 "s3",
@@ -113,20 +112,21 @@ async def upload_image(file: UploadFile = File(...)):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                 region_name=settings.AWS_REGION,
             )
-            
+
             s3_client.upload_fileobj(
                 file.file,
                 settings.S3_BUCKET_NAME,
-                unique_name,
+                s3_key,
                 ExtraArgs={"ContentType": file.content_type}
             )
-            
+
             # Return S3 URL
             return {
-                "filename": unique_name, 
-                "url": f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{unique_name}"
+                "filename": unique_name,
+                "url": f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{s3_key}"
             }
-        except (NoCredentialsError, BotoCoreError) as e:
+
+        except (NoCredentialsError, BotoCoreError, Exception) as e:
             raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
 
     # 2. Local Mode (Default)
@@ -136,12 +136,11 @@ async def upload_image(file: UploadFile = File(...)):
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    # Return Local URL
     return {"filename": unique_name, "url": f"{settings.BASE_URL}{unique_name}"}
 
 
 # ------------------------------------------------------
-# Create Product  (VALIDATED)
+# Create Product
 # ------------------------------------------------------
 @router.post("/create-product", response_model=dict)
 async def create_product_endpoint(product: ProductCreate):
@@ -170,7 +169,7 @@ async def get_products_for_seller(seller_id: int = Query(...)):
 
 
 # ------------------------------------------------------
-# Get Single Product  (FIXED: remove BYTEA embedding)
+# Get Single Product
 # ------------------------------------------------------
 @router.get("/products/{product_id}", response_model=dict)
 async def get_product(product_id: int = Path(...)):
@@ -179,14 +178,12 @@ async def get_product(product_id: int = Path(...)):
     if not row:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # 🔥 CRITICAL FIX — remove non-JSON-serializable fields
     row.pop("embedding", None)
-
     return row
 
 
 # ------------------------------------------------------
-# Update Product (Seller edits)
+# Update Product
 # ------------------------------------------------------
 @router.patch("/products/{product_id}", response_model=dict)
 async def patch_product(product_id: int, payload: ProductUpdate):
@@ -196,7 +193,6 @@ async def patch_product(product_id: int, payload: ProductUpdate):
 
     current_status = product.get("status")
 
-    # If product is approved → move to pending on edit
     if current_status == "approved":
         payload.status = "pending"
 
@@ -226,7 +222,6 @@ async def delete_product(product_id: int):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # Soft delete: update status to 'deleted'
     payload = ProductUpdate(status="deleted")
     success = product_service.update_product(product_id, payload)
 
