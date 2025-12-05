@@ -2,6 +2,8 @@
 import os
 import uuid
 from typing import List
+import boto3
+from botocore.exceptions import BotoCoreError, NoCredentialsError
 
 from fastapi import APIRouter, File, HTTPException, Path, Query, UploadFile
 from pydantic import BaseModel
@@ -97,16 +99,44 @@ async def upload_image(file: UploadFile = File(...)):
     ext = file.filename.split(".")[-1]
     unique_name = f"{uuid.uuid4().hex}.{ext}"
 
+    # HYBRID UPLOAD LOGIC
+    # -------------------
+    # 1. Cloud Mode (S3)
+    if settings.USE_CLOUD:
+        try:
+            if not settings.S3_BUCKET_NAME:
+                 raise HTTPException(status_code=500, detail="S3_BUCKET_NAME not configured.")
+
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_REGION,
+            )
+            
+            s3_client.upload_fileobj(
+                file.file,
+                settings.S3_BUCKET_NAME,
+                unique_name,
+                ExtraArgs={"ContentType": file.content_type}
+            )
+            
+            # Return S3 URL
+            return {
+                "filename": unique_name, 
+                "url": f"https://{settings.S3_BUCKET_NAME}.s3.{settings.AWS_REGION}.amazonaws.com/{unique_name}"
+            }
+        except (NoCredentialsError, BotoCoreError) as e:
+            raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
+
+    # 2. Local Mode (Default)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     file_path = os.path.join(UPLOAD_DIR, unique_name)
     with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    # Return full URL or relative path depending on BASE_URL setting
-    # If BASE_URL is absolute, this returns absolute.
-    # We strip the trailing slash from BASE_URL if we want to be safe, but config has it.
-    # Assuming BASE_URL ends with /
+    # Return Local URL
     return {"filename": unique_name, "url": f"{settings.BASE_URL}{unique_name}"}
 
 

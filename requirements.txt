@@ -5,6 +5,7 @@ transformers
 faiss-cpu
 pillow
 python-multipart
+boto3
 jinja2
 numpy
 requests

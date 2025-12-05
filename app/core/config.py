@@ -65,5 +65,15 @@ class Settings:
     GROQ_API_KEY: str = os.environ["GROQ_API_KEY"]
     GROQ_API_URL: str = os.environ["GROQ_API_URL"]
 
+    # --------------------------
+    # Hybrid Storage Config
+    # --------------------------
+    USE_CLOUD: bool = os.environ.get("USE_CLOUD", "False").lower() == "true"
+    
+    AWS_ACCESS_KEY_ID: str = os.environ.get("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+    AWS_REGION: str = os.environ.get("AWS_REGION", "us-east-1")
+    S3_BUCKET_NAME: str = os.environ.get("S3_BUCKET_NAME", "")
+
 
 settings = Settings()
