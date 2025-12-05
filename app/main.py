@@ -105,6 +105,13 @@ def include_routers():
     except Exception:
         pass
 
+    # Config Router
+    try:
+        from app.routers.config import router as config_router
+        app.include_router(config_router, prefix="/config", tags=["config"])
+    except Exception:
+        pass
+
 include_routers()
 
 # ---------------------------------------------------------
