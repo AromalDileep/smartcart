@@ -1,4 +1,17 @@
 // app/static/seller/app.js
+
+// ===============================
+// BASE URL AND FALLBACK
+// ===============================
+const BASE_URL =
+  "https://smartcart-ai-data.s3.ap-south-1.amazonaws.com/all_images/";
+
+const NO_IMAGE_SVG =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><rect width='150' height='150' fill='%23eee'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23666' font-size='14'>no image</text></svg>";
+
+// ===============================
+// API ENDPOINTS
+// ===============================
 const UPLOAD_URL = "/seller/upload-image";
 const CREATE_URL = "/seller/create-product";
 const LIST_URL = "/seller/products";
@@ -228,9 +241,12 @@ document.addEventListener("DOMContentLoaded", () => {
       for (const r of rows) {
         if (r.status === "deleted") continue;
 
-        const imgTag = r.image
-          ? `<img src="/images/${r.image}" style="max-width:80px;">`
-          : "";
+        // ✅ UPDATED: S3-compatible image handling with fallback
+        const imgUrl = r.image ? `${BASE_URL}${r.image}` : NO_IMAGE_SVG;
+        const imgTag = `<img loading="lazy" src="${imgUrl}" alt="${
+          r.title || "product"
+        }" style="max-width:80px; height:auto;" 
+                        onerror="this.onerror=null; this.src='${NO_IMAGE_SVG}'" />`;
 
         const resubmitBtn =
           r.status === "rejected"

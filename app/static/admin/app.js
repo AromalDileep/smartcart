@@ -1,4 +1,14 @@
 // ----------------------------------------
+// BASE URL FOR IMAGES
+// ----------------------------------------
+const BASE_URL =
+  "https://smartcart-ai-data.s3.ap-south-1.amazonaws.com/all_images/";
+
+// Fallback image SVG
+const NO_IMAGE_SVG =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='%23eee'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23666' font-size='14'>no image</text></svg>";
+
+// ----------------------------------------
 // GLOBAL PAGINATION STATE
 // ----------------------------------------
 let pendingOffset = 0;
@@ -99,10 +109,13 @@ async function loadPending(reset = false) {
   const rows = await res.json();
 
   for (const r of rows) {
+    const imgUrl = r.image ? `${BASE_URL}${r.image}` : NO_IMAGE_SVG;
+    const altText = r.title || "product image";
+
     tb.innerHTML += `
       <tr>
         <td>${r.id}</td>
-        <td><img src="/images/${r.image}" /></td>
+        <td><img loading="lazy" src="${imgUrl}" alt="${altText}" style="width:80px;height:auto;" onerror="this.onerror=null;this.src='${NO_IMAGE_SVG}'" /></td>
         <td>${r.title}</td>
         <td>${r.seller_id}</td>
         <td>${r.created_at}</td>
@@ -191,10 +204,13 @@ async function loadApproved(reset = false) {
   const rows = await res.json();
 
   for (const r of rows) {
+    const imgUrl = r.image ? `${BASE_URL}${r.image}` : NO_IMAGE_SVG;
+    const altText = r.title || "product image";
+
     tb.innerHTML += `
       <tr>
         <td>${r.id}</td>
-        <td><img src="/images/${r.image}" /></td>
+        <td><img loading="lazy" src="${imgUrl}" alt="${altText}" style="width:80px;height:auto;" onerror="this.onerror=null;this.src='${NO_IMAGE_SVG}'" /></td>
         <td>${r.title}</td>
         <td>${r.seller_id}</td>
         <td>${r.approved_at}</td>
@@ -247,10 +263,13 @@ async function loadDeleted(reset = false) {
   const rows = await res.json();
 
   for (const r of rows) {
+    const imgUrl = r.image ? `${BASE_URL}${r.image}` : NO_IMAGE_SVG;
+    const altText = r.title || "product image";
+
     tb.innerHTML += `
       <tr>
         <td>${r.id}</td>
-        <td><img src="/images/${r.image}" /></td>
+        <td><img loading="lazy" src="${imgUrl}" alt="${altText}" style="width:80px;height:auto;" onerror="this.onerror=null;this.src='${NO_IMAGE_SVG}'" /></td>
         <td>${r.title}</td>
         <td>${r.seller_id}</td>
         <td>${r.created_at}</td>
@@ -340,9 +359,11 @@ async function loadOrphans() {
 
     tb.innerHTML = "";
     for (const f of files) {
+      const imgUrl = f ? `${BASE_URL}${f}` : NO_IMAGE_SVG;
+
       tb.innerHTML += `
         <tr>
-          <td><img src="/images/${f}" style="max-width: 80px;" /></td>
+          <td><img loading="lazy" src="${imgUrl}" alt="${f}" style="width:80px;height:auto;" onerror="this.onerror=null;this.src='${NO_IMAGE_SVG}'" /></td>
           <td>${f}</td>
           <td>
             <button class="btn-sm deleteOrphanBtn" data-name="${f}" style="background-color: #f44336; color: white;">Delete</button>
