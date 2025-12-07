@@ -55,6 +55,9 @@ def download_from_s3(image_name: str) -> str:
 
 # Utility: Delete object from S3
 def delete_from_s3(image_name: str):
+    """
+    Deletes an image object from the configured S3 bucket.
+    """
     s3_key = f"all_images/{image_name}"       # <-- FIXED HERE
 
     s3 = boto3.client(
@@ -78,6 +81,9 @@ def delete_from_s3(image_name: str):
 # -------------------------
 @router.post("/login")
 def admin_login(payload: dict):
+    """
+    Validates admin credentials and returns success status with admin details.
+    """
     if payload.get("email") == ADMIN_EMAIL and payload.get("password") == ADMIN_PASSWORD:
         return {"admin_id": ADMIN_ID, "email": ADMIN_EMAIL, "status": "success"}
     raise HTTPException(status_code=401, detail="Invalid admin credentials")
@@ -88,6 +94,9 @@ def admin_login(payload: dict):
 # -------------------------
 @router.get("/pending-products", response_model=List[dict])
 def list_pending_products(offset: int = 0, limit: int = 20):
+    """
+    Retrieves a paginated list of products with 'pending' status.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -124,6 +133,11 @@ def list_pending_products(offset: int = 0, limit: int = 20):
 # -------------------------
 @router.post("/approve/{product_id}")
 def approve_product(product_id: int, admin_id: int = ADMIN_ID):
+    """
+    Approves a product, generates its embedding using CLIP,
+    adds it to the FAISS index, and updates the DB status.
+    Handles both local and cloud image storage.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -178,6 +192,10 @@ def approve_product(product_id: int, admin_id: int = ADMIN_ID):
 # -------------------------
 @router.post("/approve-all")
 def approve_all_products(admin_id: int = ADMIN_ID):
+    """
+    Iterates through all pending products, approves them,
+    generates embeddings, and adds them to FAISS.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -239,6 +257,9 @@ def approve_all_products(admin_id: int = ADMIN_ID):
 # -------------------------
 @router.post("/reject/{product_id}")
 def reject_product(product_id: int, admin_id: int = ADMIN_ID):
+    """
+    Updates a product's status to 'rejected' in the database.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -265,6 +286,9 @@ def reject_product(product_id: int, admin_id: int = ADMIN_ID):
 # -------------------------
 @router.get("/approved-products", response_model=List[dict])
 def list_approved_products(offset: int = 0, limit: int = 50):
+    """
+    Retrieves a paginated list of products with 'approved' status.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -299,6 +323,9 @@ def list_approved_products(offset: int = 0, limit: int = 50):
 # -------------------------
 @router.delete("/delete/{product_id}")
 def delete_product_admin(product_id: int):
+    """
+    Deletes the product from the database and removes its associated resources (FAISS vector, image file).
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -339,6 +366,9 @@ def delete_product_admin(product_id: int):
 # -------------------------
 @router.get("/deleted-products", response_model=List[dict])
 def list_deleted_products(offset: int = 0, limit: int = 20):
+    """
+    Retrieves a paginated list of products with 'deleted' status.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -374,6 +404,9 @@ def list_deleted_products(offset: int = 0, limit: int = 20):
 # -------------------------
 @router.delete("/permanent-delete/{product_id}")
 def permanent_delete_product(product_id: int):
+    """
+    Permanently removes a product, including its FAISS vector and image file.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -412,6 +445,10 @@ def permanent_delete_product(product_id: int):
 # -------------------------
 @router.delete("/permanent-delete-all")
 def permanent_delete_all_deleted_products():
+    """
+    Permanently removes all products marked with 'deleted' status,
+    cleaning up their FAISS vectors and image files.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -454,6 +491,10 @@ def permanent_delete_all_deleted_products():
 # -------------------------
 @router.post("/rebuild-faiss")
 def rebuild_faiss_index():
+    """
+    Rebuilds the FAISS index from scratch using existing embeddings
+    stored in the database for all approved products.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -488,6 +529,9 @@ def rebuild_faiss_index():
 # -------------------------
 @router.post("/backup-faiss")
 def backup_faiss():
+    """
+    Creates a backup of the current on-disk FAISS index file.
+    """
     embedder, faiss_mgr = ensure_services()
 
     path = faiss_mgr.backup_index()
@@ -499,6 +543,10 @@ def backup_faiss():
 # -------------------------
 @router.get("/faiss-stats")
 def faiss_stats():
+    """
+    Returns statistics about the system: total products, approved count,
+    and number of vectors in the FAISS index.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -527,6 +575,10 @@ def faiss_stats():
 # -------------------------
 @router.get("/orphan-images", response_model=List[str])
 def list_orphan_images():
+    """
+    Identifies images physically present in storage (local or S3)
+    but not referenced by any product in the database.
+    """
     # 1. List images from S3 or local
     if settings.USE_CLOUD:
         s3 = boto3.client(
@@ -566,6 +618,9 @@ def list_orphan_images():
 
 @router.delete("/orphan-images/{filename}")
 def delete_orphan_image(filename: str):
+    """
+    Deletes a specific orphan image file.
+    """
     # Protect from directory traversal
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
@@ -596,6 +651,9 @@ def delete_orphan_image(filename: str):
 
 @router.delete("/orphan-images-all")
 def delete_all_orphan_images():
+    """
+    Deletes all identified orphan images to free up storage space.
+    """
     orphans = list_orphan_images()
     errors = []
     count = 0

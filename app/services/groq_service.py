@@ -4,6 +4,10 @@ from app.core.config import settings
 MODEL_NAME = "llama-3.3-70b-versatile"
 
 def ask_groq_question(context: str, question: str) -> dict:
+    """
+    Sends a question with product context to the Groq API (LLaMA-3 model)
+    and returns the generated answer.
+    """
     try:
         system_prompt = (
             "You are a helpful shopping assistant. Use only the information "

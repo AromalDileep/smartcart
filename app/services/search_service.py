@@ -19,6 +19,9 @@ BASE_URL = settings.BASE_URL
 # IMAGE SEARCH
 # -------------------------------------------------------
 def search_by_image(image_file_bytes, top_k=10):
+    """
+    Embeds an image using CLIP and searches the FAISS index for similar products.
+    """
     embedder, faiss_mgr = ensure_services()
 
     temp_path = settings.TEMP_IMAGE_PATH
@@ -36,6 +39,9 @@ def search_by_image(image_file_bytes, top_k=10):
 # TEXT SEARCH
 # -------------------------------------------------------
 def search_by_text(query: str, top_k=10):
+    """
+    Embeds a text query using CLIP and searches the FAISS index.
+    """
     embedder, faiss_mgr = ensure_services()
 
     inputs = embedder.processor(
@@ -60,6 +66,10 @@ def search_by_text(query: str, top_k=10):
 # HYBRID SEARCH
 # -------------------------------------------------------
 def search_hybrid(image_bytes, text_query, w_image=0.5, w_text=0.5, top_k=10):
+    """
+    Combines image and text vectors with weighted importance and searches FAISS.
+    Norms are handled to ensure balanced contribution.
+    """
     embedder, faiss_mgr = ensure_services()
 
     if not image_bytes and not text_query:
@@ -119,6 +129,10 @@ def search_hybrid(image_bytes, text_query, w_image=0.5, w_text=0.5, top_k=10):
 # FORMAT RESULTS
 # -------------------------------------------------------
 def format_results(ids, scores):
+    """
+    Resolves FAISS IDs back to database product records.
+    Returns a list of result dictionaries with metadata.
+    """
     conn = get_connection()
     cur = conn.cursor()
 

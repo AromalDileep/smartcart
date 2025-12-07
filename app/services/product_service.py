@@ -13,6 +13,9 @@ FAISS_INDEX_POS = None
 # CREATE PRODUCT
 # -----------------------------------
 def create_product(product: ProductCreate, seller_id: int) -> int:
+    """
+    Inserts a new product into the database and returns its new ID.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -48,6 +51,10 @@ def create_product(product: ProductCreate, seller_id: int) -> int:
 # REMOVE NON-JSON FIELDS (embedding)
 # -----------------------------------
 def get_product(product_id: int) -> Optional[Dict]:
+    """
+    Retrieves a single product by ID.
+    Explicitly removes the 'embedding' binary field before returning.
+    """
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -73,6 +80,10 @@ def get_product(product_id: int) -> Optional[Dict]:
 # (no embedding here, so OK)
 # -----------------------------------
 def get_products_by_seller(seller_id: int) -> List[Dict]:
+    """
+    Retrieves all products for a specific seller, ordered by newest first.
+    Removes embedding fields from the result.
+    """
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
@@ -101,6 +112,10 @@ def get_products_by_seller(seller_id: int) -> List[Dict]:
 # GET ALL PRODUCTS
 # -----------------------------------
 def get_all_products() -> List:
+    """
+    Retrieves all products from the database.
+    WARNING: This fetches EVERYTHING and might be slow if the DB is large.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -116,6 +131,10 @@ def get_all_products() -> List:
 # UPDATE PRODUCT
 # -----------------------------------
 def update_product(product_id: int, product: ProductUpdate) -> bool:
+    """
+    Updates specified fields of a product dynamically.
+    Returns True if successful, False if no fields updated.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -160,6 +179,9 @@ def update_product(product_id: int, product: ProductUpdate) -> bool:
 # DELETE PRODUCT
 # -----------------------------------
 def delete_product(product_id: int) -> bool:
+    """
+    Hard deletes a product from the database.
+    """
     conn = get_connection()
     cur = conn.cursor()
 

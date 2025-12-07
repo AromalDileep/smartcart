@@ -19,6 +19,10 @@ router = APIRouter()
 # -------------------------------
 @router.post("/", response_model=dict)
 def create_new_product(product: ProductCreate):
+    """
+    Creates a new product entry in the database with 'pending' status.
+    This is typically used by sellers to upload new items.
+    """
     new_id = create_product(product)
     return {"id": new_id, "status": "pending"}
 
@@ -28,6 +32,9 @@ def create_new_product(product: ProductCreate):
 # -------------------------------
 @router.get("/", response_model=List[dict])
 def fetch_all_products():
+    """
+    Retrieves all products from the database, ordered by ID.
+    """
     rows = get_all_products()
     products = []
 
@@ -57,6 +64,9 @@ def fetch_all_products():
 # -------------------------------
 @router.get("/{product_id}", response_model=dict)
 def fetch_product(product_id: int):
+    """
+    Retrieves details of a specific product by its ID.
+    """
     row = get_product(product_id)
     if not row:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -84,6 +94,9 @@ def fetch_product(product_id: int):
 # -------------------------------
 @router.patch("/{product_id}", response_model=dict)
 def modify_product(product_id: int, product: ProductUpdate):
+    """
+    Updates attributes of an existing product.
+    """
     updated = update_product(product_id, product)
     if not updated:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -95,6 +108,9 @@ def modify_product(product_id: int, product: ProductUpdate):
 # -------------------------------
 @router.delete("/{product_id}", response_model=dict)
 def remove_product(product_id: int):
+    """
+    Hard deletes a product from the database.
+    """
     deleted = delete_product(product_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Product not found")

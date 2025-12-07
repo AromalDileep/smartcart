@@ -5,6 +5,11 @@ import os
 import psycopg2
 
 def fix_product_id_sequence():
+    """
+    Synchronizes the PostgreSQL 'products_id_seq' with the maximum existing
+    product ID. This prevents "duplicate key value violates unique constraint"
+    errors on new inserts.
+    """
     try:
         conn = psycopg2.connect(
             host=os.getenv("POSTGRES_HOST", "db"),

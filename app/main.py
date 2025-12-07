@@ -25,6 +25,11 @@ CORS_ORIGINS = settings.CORS_ORIGINS
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for the FastAPI app.
+    Handles startup tasks (DB ensure, sequence fix, FAISS rebuild)
+    and shutdown tasks.
+    """
     # STARTUP
     logger.info("SmartCart app starting up")
 
@@ -77,6 +82,10 @@ app.mount("/images", StaticFiles(directory=settings.IMAGE_DIR), name="images")
 # 3. ROUTERS
 # ---------------------------------------------------------
 def include_routers():
+    """
+    Dynamically imports and includes all API routers
+    (Search, Products, Admin, Seller, Config) to the main FastAPI app.
+    """
     # Search Router
     try:
         from app.routers.search import router as search_router
@@ -119,6 +128,9 @@ include_routers()
 # ---------------------------------------------------------
 @app.get("/")
 async def root():
+    """
+    Root endpoint to verify the API is running.
+    """
     return {"message": "SmartCart API is running"}
 
 
@@ -126,6 +138,10 @@ async def root():
 # AUTO REBUILD FAISS
 # ---------------------------------------------------------
 def auto_rebuild_faiss():
+    """
+    Checks for approved products with existing embeddings in the DB
+    and rebuilds the in-memory FAISS index on startup.
+    """
     embedder, faiss_mgr = ensure_services()
 
     conn = get_connection()
@@ -164,6 +180,10 @@ def auto_rebuild_faiss():
 # ---------------------------------------------------------
 @app.get("/ui")
 def serve_ui():
+    """
+    Serves the static index.html file for the customer UI
+    at the /ui endpoint.
+    """
     import os
     base_path = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_path, "static/customer/index.html")

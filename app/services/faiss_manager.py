@@ -64,6 +64,10 @@ class FaissManager:
 
     # -----------------------------------------------
     def search(self, vector: np.ndarray, top_k: int = 10):
+        """
+        Searches the index for the K nearest neighbors of the query vector.
+        Returns a list of IDs and their corresponding similarity scores (L2/Interval Product).
+        """
         vec = np.asarray(vector, dtype="float32").reshape(1, -1)
         scores, ids = self.index.search(vec, top_k)
         return ids[0].tolist(), scores[0].tolist()

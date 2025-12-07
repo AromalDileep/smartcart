@@ -12,6 +12,10 @@ from app.core.config import settings
 
 class CLIPEmbedder:
     def __init__(self, device=None):
+        """
+        Initializes the CLIP model and processor.
+        Loads from the local path defined in configuration.
+        """
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         # load model & processor from local folder
         self.model = CLIPModel.from_pretrained(settings.MODEL_PATH).to(self.device)
@@ -19,7 +23,8 @@ class CLIPEmbedder:
 
     def embed_image(self, image_path: str) -> np.ndarray:
         """
-        Returns a normalized (L2) 512-d float32 numpy vector.
+        Opens an image from the given path, preprocesses it with CLIPProcessor,
+        and generates a normalized (L2) 512-dimension vector embedding.
         """
         image = Image.open(image_path).convert("RGB")
         inputs = self.processor(images=image, return_tensors="pt")

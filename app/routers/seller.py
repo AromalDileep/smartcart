@@ -37,6 +37,9 @@ class SellerLogin(BaseModel):
 # ------------------------------------------------------
 @router.post("/register")
 def register_seller(payload: SellerRegister):
+    """
+    Registers a new seller with email, password, and name.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -65,6 +68,9 @@ def register_seller(payload: SellerRegister):
 # ------------------------------------------------------
 @router.post("/login")
 def login_seller(payload: SellerLogin):
+    """
+    Authenticates a seller and returns their ID and name.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -90,6 +96,10 @@ def login_seller(payload: SellerLogin):
 # ------------------------------------------------------
 @router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
+    """
+    Uploads a product image. Supports both local storage and AWS S3
+    depending on the configuration. Returns the image filename/URL.
+    """
     if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
         raise HTTPException(status_code=400, detail="Only JPG/PNG images allowed.")
 
@@ -144,6 +154,9 @@ async def upload_image(file: UploadFile = File(...)):
 # ------------------------------------------------------
 @router.post("/create-product", response_model=dict)
 async def create_product_endpoint(product: ProductCreate):
+    """
+    Allows a seller to create a new product.
+    """
     if not product.seller_id:
         raise HTTPException(status_code=400, detail="seller_id is required")
 
@@ -165,6 +178,9 @@ async def create_product_endpoint(product: ProductCreate):
 # ------------------------------------------------------
 @router.get("/products", response_model=List[dict])
 async def get_products_for_seller(seller_id: int = Query(...)):
+    """
+    Retrieves all products belonging to a specific seller.
+    """
     return product_service.get_products_by_seller(seller_id)
 
 
@@ -173,6 +189,9 @@ async def get_products_for_seller(seller_id: int = Query(...)):
 # ------------------------------------------------------
 @router.get("/products/{product_id}", response_model=dict)
 async def get_product(product_id: int = Path(...)):
+    """
+    Retrieves a single product by ID, excluding embedding data.
+    """
     row = product_service.get_product(product_id)
 
     if not row:
@@ -187,6 +206,10 @@ async def get_product(product_id: int = Path(...)):
 # ------------------------------------------------------
 @router.patch("/products/{product_id}", response_model=dict)
 async def patch_product(product_id: int, payload: ProductUpdate):
+    """
+    Updates a seller's product. If the product was approved, it resets
+    status to 'pending' for re-approval.
+    """
     product = product_service.get_product(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -217,6 +240,9 @@ async def patch_product(product_id: int, payload: ProductUpdate):
 # ------------------------------------------------------
 @router.delete("/products/{product_id}", response_model=dict)
 async def delete_product(product_id: int):
+    """
+    Soft deletes a product by setting its status to 'deleted'.
+    """
     product = product_service.get_product(product_id)
 
     if not product:
@@ -236,6 +262,9 @@ async def delete_product(product_id: int):
 # ------------------------------------------------------
 @router.post("/resubmit/{product_id}", response_model=dict)
 async def resubmit_product(product_id: int):
+    """
+    Resubmits a rejected product for approval by setting its status back to 'pending'.
+    """
     product = product_service.get_product(product_id)
 
     if not product:

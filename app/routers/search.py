@@ -15,6 +15,10 @@ def text_search(
     query: str = Query(..., description="Search text"),
     k: int = Query(settings.DEFAULT_TOP_K, description="Number of results")
 ):
+    """
+    Performs a semantic search using text embedding (CLIP)
+    against the product database.
+    """
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     return search_by_text(query, top_k=k)
@@ -25,6 +29,10 @@ async def image_search(
     image: UploadFile = File(...),
     k: int = settings.DEFAULT_TOP_K
 ):
+    """
+    Performs a visual search using the uploaded image's embedding (CLIP)
+    against the product database.
+    """
     img_bytes = await image.read()
     return search_by_image(img_bytes, top_k=k)
 
@@ -37,6 +45,10 @@ async def hybrid_search_endpoint(
     w_text: float = Form(settings.DEFAULT_WEIGHT_TEXT),
     k: int = Query(settings.DEFAULT_TOP_K)
 ):
+    """
+    Combines text and image search results using weighted embeddings.
+    Allows adjusting importance of text vs visual similarity.
+    """
     img_bytes = None
     if image:
         img_bytes = await image.read()
@@ -54,6 +66,10 @@ class AskQuestionRequest(BaseModel):
 
 @router.post("/ask-question")
 def ask_question_endpoint(req: AskQuestionRequest):
+    """
+    Uses Groq (LLM) to answer a specific question about a product,
+    using the product's description and context as the prompt.
+    """
     # 1. Fetch product
     product = get_product(req.product_id)
     if not product:
