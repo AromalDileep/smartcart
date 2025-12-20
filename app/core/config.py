@@ -1,7 +1,14 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Prioritize .env.local if it exists (local development)
+# Fallback to .env (cloud/production or if .env.local is missing)
+env_path = Path(".env.local")
+if env_path.exists():
+    _ = load_dotenv(dotenv_path=env_path, override=True)
+else:
+    _ = load_dotenv()
 
 
 class Settings:
@@ -56,7 +63,7 @@ class Settings:
     # Server & CORS
     # --------------------------
     API_PORT: int = int(os.environ["API_PORT"])
-    CORS_ORIGINS: list = os.environ["CORS_ORIGINS"].split(",")
+    CORS_ORIGINS: list[str] = os.environ["CORS_ORIGINS"].split(",")
     BASE_URL: str = os.environ["BASE_URL"]
 
     # --------------------------

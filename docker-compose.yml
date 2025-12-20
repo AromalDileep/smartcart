@@ -13,6 +13,7 @@ services:
     volumes:
       - project_data:/project_data
       - faiss_index:/faiss_index
+      - ./.env.local:/app/.env.local
 
   db:
     image: postgres:16
