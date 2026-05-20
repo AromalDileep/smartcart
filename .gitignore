@@ -92,3 +92,8 @@ Thumbs.db
 venv/
 env/
 .venv/
+
+# ---------------------------
+# Evaluation Scripts
+# ---------------------------
+evaluation/

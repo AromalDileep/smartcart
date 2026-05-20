@@ -1,5 +1,7 @@
 import pytest
 import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
 from app.core.config import settings
 
 @pytest.fixture(scope="session", autouse=True)
